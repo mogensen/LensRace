@@ -1,14 +1,21 @@
 package handlers_test
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"io"
+	"net"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/mogensen/lensrace/internal/models"
+	"github.com/mogensen/lensrace/internal/realtime"
 	"github.com/mogensen/lensrace/internal/server"
 )
 
@@ -50,8 +57,33 @@ func doJSON(t *testing.T, app *fiber.App, method, path string, body any, out any
 	return resp.StatusCode
 }
 
+// postJSON issues a real HTTP POST against baseURL (used instead of doJSON
+// when a test also exercises a live net.Listener, since mixing app.Test()
+// with app.Listener() on the same app races on fasthttp's internal state).
+func postJSON(t *testing.T, baseURL, path string, body any, out any) int {
+	t.Helper()
+
+	b, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal body: %v", err)
+	}
+
+	resp, err := http.Post(baseURL+path, "application/json", bytes.NewReader(b))
+	if err != nil {
+		t.Fatalf("http.Post %s: %v", path, err)
+	}
+	defer resp.Body.Close()
+
+	if out != nil {
+		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+	}
+	return resp.StatusCode
+}
+
 func TestCreateGameEndpoint(t *testing.T) {
-	app := server.New(newTestApp(t))
+	app := server.New(newTestApp(t), realtime.New())
 
 	var created sessionBody
 	rec := doJSON(t, app, "POST", "/api/games", map[string]any{
@@ -74,7 +106,7 @@ func TestCreateGameEndpoint(t *testing.T) {
 }
 
 func TestCreateGameEndpointValidation(t *testing.T) {
-	app := server.New(newTestApp(t))
+	app := server.New(newTestApp(t), realtime.New())
 
 	rec := doJSON(t, app, "POST", "/api/games", map[string]any{
 		"categoryId": "",
@@ -86,7 +118,7 @@ func TestCreateGameEndpointValidation(t *testing.T) {
 }
 
 func TestFullGameLifecycleEndpoints(t *testing.T) {
-	app := server.New(newTestApp(t))
+	app := server.New(newTestApp(t), realtime.New())
 
 	var created sessionBody
 	doJSON(t, app, "POST", "/api/games", map[string]any{
@@ -183,10 +215,117 @@ func TestFullGameLifecycleEndpoints(t *testing.T) {
 }
 
 func TestGetGameNotFound(t *testing.T) {
-	app := server.New(newTestApp(t))
+	app := server.New(newTestApp(t), realtime.New())
 
 	rec := doJSON(t, app, "GET", "/api/games/does-not-exist", nil, nil)
 	if rec != fiber.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec, fiber.StatusNotFound)
 	}
+}
+
+func TestEventsEndpointStreamsStateChanges(t *testing.T) {
+	app := server.New(newTestApp(t), realtime.New())
+
+	// app.Test() can't exercise a long-lived SSE stream: it feeds the
+	// request through an in-memory testConn and blocks until
+	// fasthttp.Server.ServeConn fully returns, which never happens while
+	// our handler keeps the connection open. A real listener gives genuine
+	// concurrent client/server I/O instead. Every request in this test goes
+	// over that real listener (not app.Test()) — fasthttp.Server shares
+	// internal state between its Serve() and ServeConn() entry points that
+	// isn't safe to use concurrently, so mixing the two on one app races.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- app.Listener(ln) }()
+	t.Cleanup(func() {
+		// A plain Shutdown() blocks indefinitely on any still-open SSE
+		// connection (it never notices the client closed until the next
+		// write attempt, which is up to sseHeartbeatInterval away). Bound
+		// it so test cleanup can't hang.
+		_ = app.ShutdownWithTimeout(time.Second)
+		<-serveErr
+	})
+	baseURL := "http://" + ln.Addr().String()
+
+	var created sessionBody
+	postJSON(t, baseURL, "/api/games", map[string]any{
+		"categoryId": "house-essentials",
+		"hostName":   "Alice",
+	}, &created)
+	gameID := created.Game.ID
+
+	resp, err := http.Get(baseURL + "/api/games/" + gameID + "/events")
+	if err != nil {
+		t.Fatalf("http.Get events: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("status = %d, want %d", resp.StatusCode, fiber.StatusOK)
+	}
+	if resp.Header.Get("Content-Type") != "text/event-stream" {
+		t.Fatalf("Content-Type = %q, want text/event-stream", resp.Header.Get("Content-Type"))
+	}
+
+	events := make(chan models.GameState, 4)
+	errs := make(chan error, 1)
+	go readSSEStates(resp.Body, events, errs)
+
+	first := waitForSSEState(t, events, errs)
+	if first.Game.Status != "waiting" {
+		t.Fatalf("first event status = %q, want waiting", first.Game.Status)
+	}
+	if len(first.Players) != 1 {
+		t.Fatalf("first event players = %d, want 1", len(first.Players))
+	}
+
+	joinRec := postJSON(t, baseURL, "/api/games/"+gameID+"/join", map[string]any{"name": "Bob"}, nil)
+	if joinRec != fiber.StatusCreated {
+		t.Fatalf("join status = %d, want %d", joinRec, fiber.StatusCreated)
+	}
+
+	second := waitForSSEState(t, events, errs)
+	if len(second.Players) != 2 {
+		t.Fatalf("players after join via SSE = %d, want 2", len(second.Players))
+	}
+}
+
+// readSSEStates parses "data: <json>" lines from an SSE body and decodes
+// each as a models.GameState, sending results on out until the stream ends
+// or an error/close occurs (sent on errs).
+func readSSEStates(body io.ReadCloser, out chan<- models.GameState, errs chan<- error) {
+	reader := bufio.NewReader(body)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			errs <- err
+			return
+		}
+		line = strings.TrimRight(line, "\r\n")
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		var state models.GameState
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &state); err != nil {
+			errs <- err
+			return
+		}
+		out <- state
+	}
+}
+
+func waitForSSEState(t *testing.T, events <-chan models.GameState, errs <-chan error) models.GameState {
+	t.Helper()
+	select {
+	case state := <-events:
+		return state
+	case err := <-errs:
+		t.Fatalf("reading SSE stream: %v", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for SSE event")
+	}
+	return models.GameState{}
 }

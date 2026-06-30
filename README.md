@@ -115,11 +115,20 @@ Available endpoints so far:
 | POST   | `/api/games/:id/join`        | Join a waiting game (body: `name`)                   |
 | POST   | `/api/games/:id/start`       | Start the game (body: `playerId`; host only)         |
 | POST   | `/api/games/:id/captures`    | Record a captured item (body: `playerId`, `itemId`, optional `confidence`) |
+| GET    | `/api/games/:id/events`      | **SSE** stream of the full game state on every change (status + leaderboard) |
 
 There's no auth/session layer yet — `playerId` is handed back in the create/join
 response and the client is expected to hold onto it for `start`/`captures` calls.
-A game auto-finishes when its `durationSeconds` elapses (checked lazily on the
-next request) or when a player captures every item in the category.
+A game auto-finishes when its `durationSeconds` elapses or when a player
+captures every item in the category. Expiry is detected proactively by a
+background watcher (checks an in-memory cache every second, so SSE clients see
+the `finished` status pushed to them — no need to poll), not just lazily on the
+next request.
+
+The `/events` stream sends an `event: state` message with the full
+`GameState` JSON as soon as you connect, then again on every join/start/capture/expiry,
+plus a `:` comment line every 25s as a keepalive. There's no event-type
+differentiation — decode every `data:` payload as a `GameState`.
 
 ### Configuration
 

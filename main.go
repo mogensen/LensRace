@@ -1,12 +1,18 @@
 package main
 
 import (
+	"context"
 	"log"
+	"time"
 
 	"github.com/mogensen/lensrace/internal/config"
 	"github.com/mogensen/lensrace/internal/db"
+	"github.com/mogensen/lensrace/internal/realtime"
 	"github.com/mogensen/lensrace/internal/server"
+	"github.com/mogensen/lensrace/internal/store"
 )
+
+const expiryCheckInterval = time.Second
 
 func main() {
 	cfg := config.Load()
@@ -21,6 +27,12 @@ func main() {
 		log.Fatalf("run migrations: %v", err)
 	}
 
-	app := server.New(conn)
+	hub := realtime.New()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go realtime.WatchExpirations(ctx, hub, store.New(conn), expiryCheckInterval)
+
+	app := server.New(conn, hub)
 	log.Fatal(app.Listen(":" + cfg.Port))
 }

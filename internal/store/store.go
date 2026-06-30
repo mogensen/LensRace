@@ -34,10 +34,10 @@ const (
 	MaxDurationSeconds     = 3600
 	DefaultDurationSeconds = 300
 
-	// timeLayout matches the strftime format used by SQLite column defaults
+	// TimeLayout matches the strftime format used by SQLite column defaults
 	// ('%Y-%m-%dT%H:%M:%fZ') so app-generated and DB-generated timestamps
 	// sort and parse identically.
-	timeLayout = "2006-01-02T15:04:05.000Z"
+	TimeLayout = "2006-01-02T15:04:05.000Z"
 
 	joinCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no 0/O/1/I
 	joinCodeLength   = 6
@@ -62,7 +62,7 @@ type queryer interface {
 }
 
 func now() string {
-	return time.Now().UTC().Format(timeLayout)
+	return time.Now().UTC().Format(TimeLayout)
 }
 
 // CreateGame creates a new game in the 'waiting' state along with its host
@@ -411,7 +411,7 @@ func expireIfNeeded(ctx context.Context, q queryer, g *models.Game) error {
 		return nil
 	}
 
-	started, err := time.Parse(timeLayout, *g.StartedAt)
+	started, err := time.Parse(TimeLayout, *g.StartedAt)
 	if err != nil {
 		return fmt.Errorf("parse started_at: %w", err)
 	}
@@ -420,7 +420,7 @@ func expireIfNeeded(ctx context.Context, q queryer, g *models.Game) error {
 		return nil
 	}
 
-	endedAt := deadline.Format(timeLayout)
+	endedAt := deadline.Format(TimeLayout)
 	res, err := q.ExecContext(ctx, `
 		UPDATE games SET status = 'finished', ended_at = ? WHERE id = ? AND status = 'playing'
 	`, endedAt, g.ID)

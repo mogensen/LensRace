@@ -8,6 +8,7 @@ import (
 
 	"github.com/mogensen/lensrace/internal/db"
 	"github.com/mogensen/lensrace/internal/handlers"
+	"github.com/mogensen/lensrace/internal/realtime"
 	"github.com/mogensen/lensrace/internal/server"
 )
 
@@ -27,7 +28,7 @@ func newTestApp(t *testing.T) *sql.DB {
 }
 
 func TestHealthEndpoint(t *testing.T) {
-	app := server.New(newTestApp(t))
+	app := server.New(newTestApp(t), realtime.New())
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/health", nil))
 	if err != nil {
@@ -49,7 +50,7 @@ func TestHealthEndpoint(t *testing.T) {
 }
 
 func TestCategoriesEndpoint(t *testing.T) {
-	app := server.New(newTestApp(t))
+	app := server.New(newTestApp(t), realtime.New())
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/categories", nil))
 	if err != nil {

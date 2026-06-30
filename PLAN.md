@@ -23,17 +23,17 @@
 ### Technical Features
 - [ ] **PWA**: Installable, offline-capable
 - [ ] **Offline Mode**: Play without internet, sync when reconnected
-- [ ] **Real-time Leaderboard**: Live updates during gameplay
+- [x] **Real-time Leaderboard**: Live updates during gameplay
 - [ ] **On-device Image Recognition**: No server processing, privacy-first
 - [ ] **Responsive Design**: Mobile-first, works on all screen sizes
 - [ ] **Accessibility**: Screen reader support, high contrast mode
 
 ### Backend Features
 - [x] RESTful API with Go Fiber
-- [ ] In-memory caching for live game state (persisted to SQLite) — currently reads/writes go straight to SQLite per request
+- [x] In-memory caching for live game state (persisted to SQLite)
 - [x] Game session management with unique join codes
 - [ ] Player connection tracking — `connected_at`/`disconnected_at` exist in schema, disconnect detection not wired up yet
-- [ ] Real-time updates via Server-Sent Events (SSE)
+- [x] Real-time updates via Server-Sent Events (SSE)
 - [ ] Rate limiting and abuse prevention
 
 ---
@@ -164,7 +164,7 @@ CREATE INDEX idx_captures_game ON captures(game_id);
 
 1. ✅ **Backend skeleton** — Fiber server, SQLite migrations, seed categories/items, health check.
 2. ✅ **Game lifecycle API** — create/join/start, player tracking, derived scoring, lazy time-based + first-to-complete game end detection.
-3. **Real-time** — SSE leaderboard + status broadcast, in-memory cache.
+3. ✅ **Real-time** — SSE leaderboard + status broadcast, in-memory cache, background expiry watcher.
 4. **Frontend skeleton** — Vue + Vite + Tailwind, routing, lobby/join screens.
 5. **Camera + recognition** — MediaDevices capture, TensorFlow.js COCO-SSD, match to items.
 6. **Gameplay loop** — timer, capture submission, live leaderboard, results screen.

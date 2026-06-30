@@ -1,19 +1,31 @@
 package handlers
 
 import (
+	"bufio"
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/valyala/fasthttp"
 
 	"github.com/mogensen/lensrace/internal/models"
+	"github.com/mogensen/lensrace/internal/realtime"
 	"github.com/mogensen/lensrace/internal/store"
 )
 
-// GameHandler exposes the game lifecycle API: create, join, start, capture.
+// sseHeartbeatInterval is how often a comment line is sent to keep idle SSE
+// connections (and any intermediate proxies) from timing out.
+const sseHeartbeatInterval = 25 * time.Second
+
+// GameHandler exposes the game lifecycle API: create, join, start, capture,
+// and the live event stream.
 type GameHandler struct {
 	Store *store.Store
+	Hub   *realtime.Hub
 }
 
 type createGameRequest struct {
@@ -74,20 +86,22 @@ func (h *GameHandler) Create(c *fiber.Ctx) error {
 			"durationSeconds must be between %d and %d", store.MinDurationSeconds, store.MaxDurationSeconds))
 	}
 
-	state, playerID, err := h.Store.CreateGame(c.Context(), req.CategoryID, hostName, duration)
+	state, playerID, err := h.Store.CreateGame(context.Background(), req.CategoryID, hostName, duration)
 	if err != nil {
 		return mapStoreError(err)
 	}
+	h.Hub.Publish(state.Game.ID, *state)
 
 	return c.Status(fiber.StatusCreated).JSON(sessionResponse{GameState: state, PlayerID: playerID})
 }
 
 // Get handles GET /api/games/:id.
 func (h *GameHandler) Get(c *fiber.Ctx) error {
-	state, err := h.Store.GetGameState(c.Context(), c.Params("id"))
+	state, err := h.Store.GetGameState(context.Background(), c.Params("id"))
 	if err != nil {
 		return mapStoreError(err)
 	}
+	h.Hub.Publish(state.Game.ID, *state)
 	return c.JSON(state)
 }
 
@@ -103,10 +117,11 @@ func (h *GameHandler) Join(c *fiber.Ctx) error {
 		return err
 	}
 
-	state, playerID, err := h.Store.JoinGame(c.Context(), c.Params("id"), name)
+	state, playerID, err := h.Store.JoinGame(context.Background(), c.Params("id"), name)
 	if err != nil {
 		return mapStoreError(err)
 	}
+	h.Hub.Publish(state.Game.ID, *state)
 
 	return c.Status(fiber.StatusCreated).JSON(sessionResponse{GameState: state, PlayerID: playerID})
 }
@@ -121,10 +136,11 @@ func (h *GameHandler) Start(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "playerId is required")
 	}
 
-	state, err := h.Store.StartGame(c.Context(), c.Params("id"), req.PlayerID)
+	state, err := h.Store.StartGame(context.Background(), c.Params("id"), req.PlayerID)
 	if err != nil {
 		return mapStoreError(err)
 	}
+	h.Hub.Publish(state.Game.ID, *state)
 
 	return c.JSON(state)
 }
@@ -145,12 +161,78 @@ func (h *GameHandler) Capture(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "confidence must be between 0 and 1")
 	}
 
-	state, capture, err := h.Store.RecordCapture(c.Context(), c.Params("id"), req.PlayerID, req.ItemID, req.Confidence)
+	state, capture, err := h.Store.RecordCapture(context.Background(), c.Params("id"), req.PlayerID, req.ItemID, req.Confidence)
 	if err != nil {
 		return mapStoreError(err)
 	}
+	h.Hub.Publish(state.Game.ID, *state)
 
 	return c.Status(fiber.StatusCreated).JSON(captureResponse{GameState: state, Capture: *capture})
+}
+
+// Events handles GET /api/games/:id/events: a Server-Sent Events stream
+// that pushes the full game state (status + leaderboard) on every change,
+// starting with the current state as the first event.
+func (h *GameHandler) Events(c *fiber.Ctx) error {
+	state, err := h.Store.GetGameState(context.Background(), c.Params("id"))
+	if err != nil {
+		return mapStoreError(err)
+	}
+	gameID := state.Game.ID
+
+	ch, unsubscribe := h.Hub.Subscribe(gameID)
+	h.Hub.Publish(gameID, *state)
+
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Connection", "keep-alive")
+	c.Set("X-Accel-Buffering", "no")
+
+	c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+		defer unsubscribe()
+
+		heartbeat := time.NewTicker(sseHeartbeatInterval)
+		defer heartbeat.Stop()
+
+		for {
+			select {
+			case s, ok := <-ch:
+				if !ok {
+					return
+				}
+				if err := writeSSEState(w, s); err != nil {
+					return
+				}
+				if err := w.Flush(); err != nil {
+					return
+				}
+			case <-heartbeat.C:
+				if _, err := w.WriteString(":\n\n"); err != nil {
+					return
+				}
+				if err := w.Flush(); err != nil {
+					return
+				}
+			}
+		}
+	}))
+
+	return nil
+}
+
+func writeSSEState(w *bufio.Writer, state models.GameState) error {
+	payload, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	if _, err := w.WriteString("event: state\ndata: "); err != nil {
+		return err
+	}
+	if _, err := w.Write(payload); err != nil {
+		return err
+	}
+	_, err = w.WriteString("\n\n")
+	return err
 }
 
 func normalizeName(name string) (string, error) {
