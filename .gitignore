@@ -1,0 +1,10 @@
+.DS_Store
+
+# Go
+/bin/
+*.db
+*.db-journal
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
