@@ -106,10 +106,20 @@ migrate step is needed.
 
 Available endpoints so far:
 
-| Method | Path              | Description                  |
-| ------ | ----------------- | ----------------------------- |
-| GET    | `/api/health`     | Liveness check                |
-| GET    | `/api/categories` | List predefined categories    |
+| Method | Path                       | Description                                         |
+| ------ | -------------------------- | ---------------------------------------------------- |
+| GET    | `/api/health`               | Liveness check                                       |
+| GET    | `/api/categories`           | List predefined categories                           |
+| POST   | `/api/games`                 | Create a game (body: `categoryId`, `hostName`, optional `durationSeconds`) |
+| GET    | `/api/games/:id`             | Game state — `:id` accepts either the internal ID or the public join code |
+| POST   | `/api/games/:id/join`        | Join a waiting game (body: `name`)                   |
+| POST   | `/api/games/:id/start`       | Start the game (body: `playerId`; host only)         |
+| POST   | `/api/games/:id/captures`    | Record a captured item (body: `playerId`, `itemId`, optional `confidence`) |
+
+There's no auth/session layer yet — `playerId` is handed back in the create/join
+response and the client is expected to hold onto it for `start`/`captures` calls.
+A game auto-finishes when its `durationSeconds` elapses (checked lazily on the
+next request) or when a player captures every item in the category.
 
 ### Configuration
 

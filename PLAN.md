@@ -8,16 +8,16 @@
 ## ✨ Features & Requirements
 
 ### Core Gameplay
-- [ ] Create a new game as host
-- [ ] Join an existing game with a code
-- [ ] Select game category (predefined lists)
-- [ ] Start game (host only)
-- [ ] View item list during gameplay
+- [x] Create a new game as host
+- [x] Join an existing game with a code
+- [x] Select game category (predefined lists)
+- [x] Start game (host only)
+- [x] View item list during gameplay
 - [ ] Camera access for photographing items
 - [ ] Automatic item detection via image recognition
-- [ ] Score tracking per player
-- [ ] Countdown timer (configurable duration)
-- [ ] Game end detection (first to complete or time expires)
+- [x] Score tracking per player
+- [ ] Countdown timer (configurable duration) — duration is configurable and enforced server-side; client-facing countdown UI is still pending
+- [x] Game end detection (first to complete or time expires)
 - [ ] Results screen with final rankings
 
 ### Technical Features
@@ -29,10 +29,10 @@
 - [ ] **Accessibility**: Screen reader support, high contrast mode
 
 ### Backend Features
-- [ ] RESTful API with Go Fiber
-- [ ] In-memory caching for live game state (persisted to SQLite)
-- [ ] Game session management with unique join codes
-- [ ] Player connection tracking
+- [x] RESTful API with Go Fiber
+- [ ] In-memory caching for live game state (persisted to SQLite) — currently reads/writes go straight to SQLite per request
+- [x] Game session management with unique join codes
+- [ ] Player connection tracking — `connected_at`/`disconnected_at` exist in schema, disconnect detection not wired up yet
 - [ ] Real-time updates via Server-Sent Events (SSE)
 - [ ] Rate limiting and abuse prevention
 
@@ -162,8 +162,8 @@ CREATE INDEX idx_captures_game ON captures(game_id);
 
 ## 🧭 Milestones
 
-1. **Backend skeleton** — Fiber server, SQLite migrations, seed categories/items, health check.
-2. **Game lifecycle API** — create/join/start, player tracking, derived scoring.
+1. ✅ **Backend skeleton** — Fiber server, SQLite migrations, seed categories/items, health check.
+2. ✅ **Game lifecycle API** — create/join/start, player tracking, derived scoring, lazy time-based + first-to-complete game end detection.
 3. **Real-time** — SSE leaderboard + status broadcast, in-memory cache.
 4. **Frontend skeleton** — Vue + Vite + Tailwind, routing, lobby/join screens.
 5. **Camera + recognition** — MediaDevices capture, TensorFlow.js COCO-SSD, match to items.
