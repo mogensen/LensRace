@@ -17,13 +17,14 @@ type Game struct {
 // Player is a participant in a game. Score is derived from the player's
 // captures, not stored directly.
 type Player struct {
-	ID             string  `json:"id"`
-	GameID         string  `json:"gameId"`
-	Name           string  `json:"name"`
-	IsHost         bool    `json:"isHost"`
-	Score          int     `json:"score"`
-	ConnectedAt    string  `json:"connectedAt"`
-	DisconnectedAt *string `json:"disconnectedAt,omitempty"`
+	ID              string   `json:"id"`
+	GameID          string   `json:"gameId"`
+	Name            string   `json:"name"`
+	IsHost          bool     `json:"isHost"`
+	Score           int      `json:"score"`
+	CapturedItemIDs []string `json:"capturedItemIds"`
+	ConnectedAt     string   `json:"connectedAt"`
+	DisconnectedAt  *string  `json:"disconnectedAt,omitempty"`
 }
 
 // Item is an object belonging to a category that players try to capture.

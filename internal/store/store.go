@@ -211,6 +211,52 @@ func (s *Store) StartGame(ctx context.Context, idOrCode, playerID string) (*mode
 	return s.getGameStateByID(ctx, id)
 }
 
+// SetCategory changes a waiting game's category. Only the host may do this,
+// and only before the game has started.
+func (s *Store) SetCategory(ctx context.Context, idOrCode, playerID, categoryID string) (*models.GameState, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	id, err := resolveGameID(ctx, tx, idOrCode)
+	if err != nil {
+		return nil, err
+	}
+	game, err := loadGame(ctx, tx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := expireIfNeeded(ctx, tx, game); err != nil {
+		return nil, err
+	}
+	if game.HostID == nil || *game.HostID != playerID {
+		return nil, ErrNotHost
+	}
+	if game.Status != "waiting" {
+		return nil, ErrGameNotWaiting
+	}
+
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM categories WHERE id = ?`, categoryID).Scan(&exists); err != nil {
+		return nil, fmt.Errorf("check category: %w", err)
+	}
+	if exists == 0 {
+		return nil, ErrCategoryNotFound
+	}
+
+	if _, err := tx.ExecContext(ctx, `UPDATE games SET category_id = ? WHERE id = ?`, categoryID, id); err != nil {
+		return nil, fmt.Errorf("set category: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
+	}
+
+	return s.getGameStateByID(ctx, id)
+}
+
 // RecordCapture records a player capturing an item. If the player has then
 // captured every item in the category, the game finishes immediately
 // (first to complete).
@@ -475,9 +521,43 @@ func loadPlayers(ctx context.Context, q queryer, gameID string) ([]models.Player
 			return nil, fmt.Errorf("scan player: %w", err)
 		}
 		p.DisconnectedAt = nullStringPtr(disconnectedAt)
+		p.CapturedItemIDs = []string{}
 		players = append(players, p)
 	}
-	return players, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	captured, err := loadCapturedItemIDsByPlayer(ctx, q, gameID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range players {
+		if ids, ok := captured[players[i].ID]; ok {
+			players[i].CapturedItemIDs = ids
+		}
+	}
+	return players, nil
+}
+
+func loadCapturedItemIDsByPlayer(ctx context.Context, q queryer, gameID string) (map[string][]string, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT player_id, item_id FROM captures WHERE game_id = ?
+	`, gameID)
+	if err != nil {
+		return nil, fmt.Errorf("load captures: %w", err)
+	}
+	defer rows.Close()
+
+	byPlayer := make(map[string][]string)
+	for rows.Next() {
+		var playerID, itemID string
+		if err := rows.Scan(&playerID, &itemID); err != nil {
+			return nil, fmt.Errorf("scan capture: %w", err)
+		}
+		byPlayer[playerID] = append(byPlayer[playerID], itemID)
+	}
+	return byPlayer, rows.Err()
 }
 
 func nullStringPtr(ns sql.NullString) *string {

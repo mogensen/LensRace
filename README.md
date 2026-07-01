@@ -113,6 +113,7 @@ Available endpoints so far:
 | POST   | `/api/games`                 | Create a game (body: `categoryId`, `hostName`, optional `durationSeconds`) |
 | GET    | `/api/games/:id`             | Game state — `:id` accepts either the internal ID or the public join code |
 | POST   | `/api/games/:id/join`        | Join a waiting game (body: `name`)                   |
+| PATCH  | `/api/games/:id/category`    | Change category while waiting (body: `playerId`, `categoryId`; host only) |
 | POST   | `/api/games/:id/start`       | Start the game (body: `playerId`; host only)         |
 | POST   | `/api/games/:id/captures`    | Record a captured item (body: `playerId`, `itemId`, optional `confidence`) |
 | GET    | `/api/games/:id/events`      | **SSE** stream of the full game state on every change (status + leaderboard) |
@@ -147,14 +148,37 @@ All frontend commands run from the `frontend/` directory.
 cd frontend
 pnpm install      # install dependencies
 pnpm dev          # Vite dev server with HMR
-pnpm build        # production build
+pnpm build        # type-check + production build
 pnpm preview      # serve the production build locally
-pnpm test         # Playwright end-to-end tests
-pnpm lint         # ESLint + Prettier
+pnpm test:e2e     # Playwright end-to-end tests (run `pnpm exec playwright install` first)
+pnpm lint         # oxlint + ESLint (--fix)
+pnpm format       # Prettier
 ```
 
-The dev server proxies `/api` to the backend on `:3000` (configure in
+The dev server proxies `/api` to the backend on `:3000` (configured in
 `vite.config.ts`).
+
+Scaffolded with `create-vue` (TypeScript, Vue Router, ESLint+Prettier,
+Playwright) plus Tailwind CSS v4 via `@tailwindcss/vite`. The UI implements
+the "Snap Hunt" design end-to-end against the real backend — no mock data —
+using the app's own game state and lobby/timer/leaderboard, not the design
+prototype's simulated bot opponents.
+
+| Route               | View          | Purpose                                                  |
+| -------------------- | -------------- | ---------------------------------------------------------|
+| `/`                   | `HomeView`     | Create a game or join one with a code                    |
+| `/games/:id/lobby`    | `LobbyView`    | Share the join code, host picks category, players + start|
+| `/games/:id/play`     | `PlayView`     | Live timer, progress, item list, leaderboard, SNAP button|
+| `/games/:id/results`  | `ResultsView`  | Podium, full ranking, confetti, play again                |
+
+Supporting structure:
+
+- `src/lib/api.ts` — typed fetch client for the backend (mirrors `internal/models`), plus an SSE subscription helper.
+- `src/stores/game.ts` — a small reactive singleton (not Pinia — unnecessary for this scope) holding the live `GameState`, the current player's id, and the SSE connection; persists `{ gameId, playerId }` to `localStorage` so a page refresh mid-game doesn't lose your identity.
+- `src/components/CameraOverlay.vue` — the aim/scan/done capture UI. It currently targets whichever item you tap in the list and calls the real capture API on "shutter" — real camera access and on-device detection are milestone 5, not yet wired in.
+- `src/lib/{avatar,itemIcons,categoryIcons}.ts` — small client-side cosmetic lookups (emoji/color) for players/items/categories, since the backend doesn't model those.
+
+One backend addition came out of implementing this design: `PATCH /api/games/:id/category` lets the host change category from the lobby (the design picks category *after* creating the game, not at creation time).
 
 ---
 

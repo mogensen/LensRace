@@ -3,6 +3,7 @@ package server
 
 import (
 	"database/sql"
+	"errors"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -18,7 +19,18 @@ import (
 // caches live game state and fans out updates to SSE subscribers; the
 // caller is responsible for keeping it fed (see realtime.WatchExpirations).
 func New(conn *sql.DB, hub *realtime.Hub) *fiber.App {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		// The default error handler returns plain text; the frontend needs
+		// JSON error bodies to show user-facing messages.
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			code := fiber.StatusInternalServerError
+			var fiberErr *fiber.Error
+			if errors.As(err, &fiberErr) {
+				code = fiberErr.Code
+			}
+			return c.Status(code).JSON(fiber.Map{"error": err.Error()})
+		},
+	})
 
 	app.Use(recover.New())
 	app.Use(logger.New())
@@ -34,6 +46,7 @@ func New(conn *sql.DB, hub *realtime.Hub) *fiber.App {
 	api.Post("/games", games.Create)
 	api.Get("/games/:id", games.Get)
 	api.Post("/games/:id/join", games.Join)
+	api.Patch("/games/:id/category", games.SetCategory)
 	api.Post("/games/:id/start", games.Start)
 	api.Post("/games/:id/captures", games.Capture)
 	api.Get("/games/:id/events", games.Events)

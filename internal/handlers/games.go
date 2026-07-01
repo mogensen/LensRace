@@ -42,6 +42,11 @@ type startGameRequest struct {
 	PlayerID string `json:"playerId"`
 }
 
+type setCategoryRequest struct {
+	PlayerID   string `json:"playerId"`
+	CategoryID string `json:"categoryId"`
+}
+
 type captureRequest struct {
 	PlayerID   string   `json:"playerId"`
 	ItemID     string   `json:"itemId"`
@@ -124,6 +129,28 @@ func (h *GameHandler) Join(c *fiber.Ctx) error {
 	h.Hub.Publish(state.Game.ID, *state)
 
 	return c.Status(fiber.StatusCreated).JSON(sessionResponse{GameState: state, PlayerID: playerID})
+}
+
+// SetCategory handles PATCH /api/games/:id/category.
+func (h *GameHandler) SetCategory(c *fiber.Ctx) error {
+	var req setCategoryRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	if strings.TrimSpace(req.PlayerID) == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "playerId is required")
+	}
+	if strings.TrimSpace(req.CategoryID) == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "categoryId is required")
+	}
+
+	state, err := h.Store.SetCategory(context.Background(), c.Params("id"), req.PlayerID, req.CategoryID)
+	if err != nil {
+		return mapStoreError(err)
+	}
+	h.Hub.Publish(state.Game.ID, *state)
+
+	return c.JSON(state)
 }
 
 // Start handles POST /api/games/:id/start.

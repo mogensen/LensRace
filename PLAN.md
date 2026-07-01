@@ -13,12 +13,12 @@
 - [x] Select game category (predefined lists)
 - [x] Start game (host only)
 - [x] View item list during gameplay
-- [ ] Camera access for photographing items
+- [ ] Camera access for photographing items — capture flow UI exists (aim/scan/done overlay) but targets a manually-picked item, not a live camera feed
 - [ ] Automatic item detection via image recognition
 - [x] Score tracking per player
-- [ ] Countdown timer (configurable duration) — duration is configurable and enforced server-side; client-facing countdown UI is still pending
+- [x] Countdown timer (configurable duration) — server-enforced, ticking client-side display in Play
 - [x] Game end detection (first to complete or time expires)
-- [ ] Results screen with final rankings
+- [x] Results screen with final rankings
 
 ### Technical Features
 - [ ] **PWA**: Installable, offline-capable
@@ -154,6 +154,7 @@ CREATE INDEX idx_captures_game ON captures(game_id);
 | POST   | `/api/games`                  | Create a game (returns id + join code)       |
 | GET    | `/api/games/:id`              | Game state (players, status, items)          |
 | POST   | `/api/games/:id/join`         | Join a game with a name                      |
+| PATCH  | `/api/games/:id/category`     | Change category while waiting (host only)    |
 | POST   | `/api/games/:id/start`        | Start the game (host only)                   |
 | POST   | `/api/games/:id/captures`     | Record a detected item for the player        |
 | GET    | `/api/games/:id/events`       | **SSE** stream: live leaderboard + status    |
@@ -165,8 +166,8 @@ CREATE INDEX idx_captures_game ON captures(game_id);
 1. ✅ **Backend skeleton** — Fiber server, SQLite migrations, seed categories/items, health check.
 2. ✅ **Game lifecycle API** — create/join/start, player tracking, derived scoring, lazy time-based + first-to-complete game end detection.
 3. ✅ **Real-time** — SSE leaderboard + status broadcast, in-memory cache, background expiry watcher.
-4. **Frontend skeleton** — Vue + Vite + Tailwind, routing, lobby/join screens.
-5. **Camera + recognition** — MediaDevices capture, TensorFlow.js COCO-SSD, match to items.
-6. **Gameplay loop** — timer, capture submission, live leaderboard, results screen.
+4. ✅ **Frontend skeleton** — Vue + Vite + Tailwind, routing, lobby/join screens (placeholders; design/functionality in later milestones).
+5. **Camera + recognition** — real MediaDevices capture + TensorFlow.js COCO-SSD, replacing the current directed "aim at this item, tap shutter" capture flow with genuine on-device auto-detection.
+6. ✅ **Gameplay loop** — implemented the "Snap Hunt" design end-to-end against the real backend/SSE: home (create/join), lobby (host category picker, live players), play (live timer, progress, item list, leaderboard), camera capture overlay (UI flow only — see milestone 5), results (podium, ranking, confetti).
 7. **PWA + offline** — service worker, installability, offline play with reconnect sync.
 8. **Polish** — accessibility, rate limiting, CI (GitHub Actions), Docker deploy.

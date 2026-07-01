@@ -214,6 +214,43 @@ func TestFullGameLifecycleEndpoints(t *testing.T) {
 	}
 }
 
+func TestSetCategoryEndpoint(t *testing.T) {
+	app := server.New(newTestApp(t), realtime.New())
+
+	var created sessionBody
+	doJSON(t, app, "POST", "/api/games", map[string]any{
+		"categoryId": "house-essentials",
+		"hostName":   "Alice",
+	}, &created)
+	gameID := created.Game.ID
+	hostID := created.PlayerID
+
+	var updated models.GameState
+	rec := doJSON(t, app, "PATCH", "/api/games/"+gameID+"/category", map[string]any{
+		"playerId":   hostID,
+		"categoryId": "city-scavenger",
+	}, &updated)
+	if rec != fiber.StatusOK {
+		t.Fatalf("status = %d, want %d", rec, fiber.StatusOK)
+	}
+	if updated.Game.CategoryID != "city-scavenger" {
+		t.Fatalf("categoryId = %q, want city-scavenger", updated.Game.CategoryID)
+	}
+	for _, item := range updated.Items {
+		if item.CategoryID != "city-scavenger" {
+			t.Fatalf("item %s belongs to %q, want city-scavenger", item.ID, item.CategoryID)
+		}
+	}
+
+	forbidden := doJSON(t, app, "PATCH", "/api/games/"+gameID+"/category", map[string]any{
+		"playerId":   "not-a-player",
+		"categoryId": "house-essentials",
+	}, nil)
+	if forbidden != fiber.StatusForbidden {
+		t.Fatalf("status = %d, want %d", forbidden, fiber.StatusForbidden)
+	}
+}
+
 func TestGetGameNotFound(t *testing.T) {
 	app := server.New(newTestApp(t), realtime.New())
 

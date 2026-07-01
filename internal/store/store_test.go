@@ -169,6 +169,72 @@ func TestStartGameTwiceFails(t *testing.T) {
 	}
 }
 
+func TestSetCategoryUpdatesItems(t *testing.T) {
+	s := newTestStore(t)
+	gameID, hostID := mustCreateGame(t, s, DefaultDurationSeconds)
+
+	state, err := s.SetCategory(context.Background(), gameID, hostID, "city-scavenger")
+	if err != nil {
+		t.Fatalf("SetCategory: %v", err)
+	}
+	if state.Game.CategoryID != "city-scavenger" {
+		t.Fatalf("category = %q, want city-scavenger", state.Game.CategoryID)
+	}
+	for _, item := range state.Items {
+		if item.CategoryID != "city-scavenger" {
+			t.Fatalf("item %s belongs to %q, want city-scavenger", item.ID, item.CategoryID)
+		}
+	}
+}
+
+func TestSetCategoryRequiresHost(t *testing.T) {
+	s := newTestStore(t)
+	gameID, _ := mustCreateGame(t, s, DefaultDurationSeconds)
+
+	_, _, err := s.JoinGame(context.Background(), gameID, "Bob")
+	if err != nil {
+		t.Fatalf("JoinGame: %v", err)
+	}
+	state, err := s.GetGameState(context.Background(), gameID)
+	if err != nil {
+		t.Fatalf("GetGameState: %v", err)
+	}
+	var guestID string
+	for _, p := range state.Players {
+		if !p.IsHost {
+			guestID = p.ID
+		}
+	}
+
+	_, err = s.SetCategory(context.Background(), gameID, guestID, "city-scavenger")
+	if !errors.Is(err, ErrNotHost) {
+		t.Fatalf("err = %v, want ErrNotHost", err)
+	}
+}
+
+func TestSetCategoryRejectsAfterStart(t *testing.T) {
+	s := newTestStore(t)
+	gameID, hostID := mustCreateGame(t, s, DefaultDurationSeconds)
+	if _, err := s.StartGame(context.Background(), gameID, hostID); err != nil {
+		t.Fatalf("StartGame: %v", err)
+	}
+
+	_, err := s.SetCategory(context.Background(), gameID, hostID, "city-scavenger")
+	if !errors.Is(err, ErrGameNotWaiting) {
+		t.Fatalf("err = %v, want ErrGameNotWaiting", err)
+	}
+}
+
+func TestSetCategoryUnknownCategory(t *testing.T) {
+	s := newTestStore(t)
+	gameID, hostID := mustCreateGame(t, s, DefaultDurationSeconds)
+
+	_, err := s.SetCategory(context.Background(), gameID, hostID, "does-not-exist")
+	if !errors.Is(err, ErrCategoryNotFound) {
+		t.Fatalf("err = %v, want ErrCategoryNotFound", err)
+	}
+}
+
 func TestRecordCaptureRequiresPlayingGame(t *testing.T) {
 	s := newTestStore(t)
 	gameID, hostID := mustCreateGame(t, s, DefaultDurationSeconds)
@@ -196,13 +262,18 @@ func TestRecordCaptureScoresAndRejectsDuplicates(t *testing.T) {
 	}
 
 	var hostScore int
+	var hostCaptured []string
 	for _, p := range state.Players {
 		if p.ID == hostID {
 			hostScore = p.Score
+			hostCaptured = p.CapturedItemIDs
 		}
 	}
 	if hostScore != 1 {
 		t.Errorf("host score = %d, want 1", hostScore)
+	}
+	if len(hostCaptured) != 1 || hostCaptured[0] != "house-chair" {
+		t.Errorf("host capturedItemIds = %v, want [house-chair]", hostCaptured)
 	}
 
 	_, _, err = s.RecordCapture(context.Background(), gameID, hostID, "house-chair", nil)
