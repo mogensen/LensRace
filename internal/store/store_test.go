@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/mogensen/lensrace/internal/db"
@@ -54,8 +55,41 @@ func TestCreateGame(t *testing.T) {
 	if len(state.Players) != 1 || !state.Players[0].IsHost || state.Players[0].Name != "Alice" {
 		t.Errorf("unexpected players: %+v", state.Players)
 	}
-	if len(state.Items) == 0 {
-		t.Error("expected items for category")
+	if len(state.Items) != TasksPerGame {
+		t.Errorf("len(items) = %d, want %d", len(state.Items), TasksPerGame)
+	}
+}
+
+func TestCreateGameDrawsRandomSubsetOfItemPool(t *testing.T) {
+	s := newTestStore(t)
+
+	var poolSize int
+	if err := s.db.QueryRowContext(context.Background(),
+		`SELECT COUNT(*) FROM items WHERE category_id = ?`, testCategoryID).Scan(&poolSize); err != nil {
+		t.Fatalf("count item pool: %v", err)
+	}
+	if poolSize <= TasksPerGame {
+		t.Fatalf("item pool for %q has %d items, want more than %d to exercise random selection", testCategoryID, poolSize, TasksPerGame)
+	}
+
+	seen := map[string]bool{}
+	for range 20 {
+		state, _, err := s.CreateGame(context.Background(), testCategoryID, "Host", DefaultDurationSeconds)
+		if err != nil {
+			t.Fatalf("CreateGame: %v", err)
+		}
+		if len(state.Items) != TasksPerGame {
+			t.Fatalf("len(items) = %d, want %d", len(state.Items), TasksPerGame)
+		}
+		ids := make([]string, len(state.Items))
+		for i, it := range state.Items {
+			ids[i] = it.ID
+		}
+		seen[strings.Join(ids, ",")] = true
+	}
+
+	if len(seen) < 2 {
+		t.Errorf("got the same %d-item selection every time across 20 games; expected variety", TasksPerGame)
 	}
 }
 
@@ -289,8 +323,12 @@ func TestSetDurationRejectsAfterStart(t *testing.T) {
 func TestRecordCaptureRequiresPlayingGame(t *testing.T) {
 	s := newTestStore(t)
 	gameID, hostID := mustCreateGame(t, s, DefaultDurationSeconds)
+	state, err := s.GetGameState(context.Background(), gameID)
+	if err != nil {
+		t.Fatalf("GetGameState: %v", err)
+	}
 
-	_, _, err := s.RecordCapture(context.Background(), gameID, hostID, "house-chair", nil)
+	_, _, err = s.RecordCapture(context.Background(), gameID, hostID, state.Items[0].ID, nil)
 	if !errors.Is(err, ErrGameNotPlaying) {
 		t.Fatalf("err = %v, want ErrGameNotPlaying", err)
 	}
@@ -299,16 +337,18 @@ func TestRecordCaptureRequiresPlayingGame(t *testing.T) {
 func TestRecordCaptureScoresAndRejectsDuplicates(t *testing.T) {
 	s := newTestStore(t)
 	gameID, hostID := mustCreateGame(t, s, DefaultDurationSeconds)
-	if _, err := s.StartGame(context.Background(), gameID, hostID); err != nil {
+	state, err := s.StartGame(context.Background(), gameID, hostID)
+	if err != nil {
 		t.Fatalf("StartGame: %v", err)
 	}
+	itemID := state.Items[0].ID
 
 	confidence := 0.92
-	state, capture, err := s.RecordCapture(context.Background(), gameID, hostID, "house-chair", &confidence)
+	state, capture, err := s.RecordCapture(context.Background(), gameID, hostID, itemID, &confidence)
 	if err != nil {
 		t.Fatalf("RecordCapture: %v", err)
 	}
-	if capture.ItemID != "house-chair" || capture.Confidence == nil || *capture.Confidence != confidence {
+	if capture.ItemID != itemID || capture.Confidence == nil || *capture.Confidence != confidence {
 		t.Errorf("unexpected capture: %+v", capture)
 	}
 
@@ -323,11 +363,11 @@ func TestRecordCaptureScoresAndRejectsDuplicates(t *testing.T) {
 	if hostScore != 1 {
 		t.Errorf("host score = %d, want 1", hostScore)
 	}
-	if len(hostCaptured) != 1 || hostCaptured[0] != "house-chair" {
-		t.Errorf("host capturedItemIds = %v, want [house-chair]", hostCaptured)
+	if len(hostCaptured) != 1 || hostCaptured[0] != itemID {
+		t.Errorf("host capturedItemIds = %v, want [%s]", hostCaptured, itemID)
 	}
 
-	_, _, err = s.RecordCapture(context.Background(), gameID, hostID, "house-chair", nil)
+	_, _, err = s.RecordCapture(context.Background(), gameID, hostID, itemID, nil)
 	if !errors.Is(err, ErrAlreadyCaptured) {
 		t.Fatalf("err = %v, want ErrAlreadyCaptured", err)
 	}
@@ -349,7 +389,8 @@ func TestRecordCaptureRejectsItemFromOtherCategory(t *testing.T) {
 func TestRecordCaptureRejectsPlayerFromOtherGame(t *testing.T) {
 	s := newTestStore(t)
 	gameID, hostID := mustCreateGame(t, s, DefaultDurationSeconds)
-	if _, err := s.StartGame(context.Background(), gameID, hostID); err != nil {
+	state, err := s.StartGame(context.Background(), gameID, hostID)
+	if err != nil {
 		t.Fatalf("StartGame: %v", err)
 	}
 
@@ -358,7 +399,7 @@ func TestRecordCaptureRejectsPlayerFromOtherGame(t *testing.T) {
 		t.Fatalf("StartGame other: %v", err)
 	}
 
-	_, _, err := s.RecordCapture(context.Background(), gameID, otherHostID, "house-chair", nil)
+	_, _, err = s.RecordCapture(context.Background(), gameID, otherHostID, state.Items[0].ID, nil)
 	if !errors.Is(err, ErrPlayerNotInGame) {
 		t.Fatalf("err = %v, want ErrPlayerNotInGame", err)
 	}

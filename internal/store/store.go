@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	mathrand "math/rand/v2"
 	"strings"
 	"time"
 
@@ -33,6 +34,11 @@ const (
 	MinDurationSeconds     = 30
 	MaxDurationSeconds     = 3600
 	DefaultDurationSeconds = 300
+
+	// TasksPerGame is how many items are randomly drawn from a category's
+	// item pool for a single game. If the category has fewer items than
+	// this, every item in the pool is used.
+	TasksPerGame = 6
 
 	// TimeLayout matches the strftime format used by SQLite column defaults
 	// ('%Y-%m-%dT%H:%M:%fZ') so app-generated and DB-generated timestamps
@@ -107,6 +113,10 @@ func (s *Store) CreateGame(ctx context.Context, categoryID, hostName string, dur
 
 	if _, err := tx.ExecContext(ctx, `UPDATE games SET host_id = ? WHERE id = ?`, playerID, gameID); err != nil {
 		return nil, "", fmt.Errorf("set host: %w", err)
+	}
+
+	if err := selectGameItems(ctx, tx, gameID, categoryID); err != nil {
+		return nil, "", err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -250,6 +260,13 @@ func (s *Store) SetCategory(ctx context.Context, idOrCode, playerID, categoryID 
 		return nil, fmt.Errorf("set category: %w", err)
 	}
 
+	if _, err := tx.ExecContext(ctx, `DELETE FROM game_items WHERE game_id = ?`, id); err != nil {
+		return nil, fmt.Errorf("clear game items: %w", err)
+	}
+	if err := selectGameItems(ctx, tx, id, categoryID); err != nil {
+		return nil, err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
 	}
@@ -333,14 +350,13 @@ func (s *Store) RecordCapture(ctx context.Context, idOrCode, playerID, itemID st
 		return nil, nil, ErrPlayerNotInGame
 	}
 
-	var itemCategoryID string
-	if err := tx.QueryRowContext(ctx, `SELECT category_id FROM items WHERE id = ?`, itemID).Scan(&itemCategoryID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil, ErrItemNotFound
-		}
-		return nil, nil, fmt.Errorf("load item: %w", err)
+	var inGame int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM game_items WHERE game_id = ? AND item_id = ?
+	`, id, itemID).Scan(&inGame); err != nil {
+		return nil, nil, fmt.Errorf("check item in game: %w", err)
 	}
-	if itemCategoryID != game.CategoryID {
+	if inGame == 0 {
 		return nil, nil, ErrItemNotFound
 	}
 
@@ -364,7 +380,7 @@ func (s *Store) RecordCapture(ctx context.Context, idOrCode, playerID, itemID st
 	}
 
 	var totalItems, playerCaptures int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM items WHERE category_id = ?`, game.CategoryID).Scan(&totalItems); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM game_items WHERE game_id = ?`, id).Scan(&totalItems); err != nil {
 		return nil, nil, fmt.Errorf("count items: %w", err)
 	}
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM captures WHERE game_id = ? AND player_id = ?`, id, playerID).Scan(&playerCaptures); err != nil {
@@ -406,7 +422,7 @@ func (s *Store) getGameStateByID(ctx context.Context, id string) (*models.GameSt
 	if err := expireIfNeeded(ctx, s.db, game); err != nil {
 		return nil, err
 	}
-	items, err := loadItems(ctx, s.db, game.CategoryID)
+	items, err := loadItemsForGame(ctx, s.db, game.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -520,10 +536,51 @@ func expireIfNeeded(ctx context.Context, q queryer, g *models.Game) error {
 	return nil
 }
 
-func loadItems(ctx context.Context, q queryer, categoryID string) ([]models.Item, error) {
+// selectGameItems draws up to TasksPerGame random items from categoryID's
+// item pool and records them as gameID's tasks for this round. If the pool
+// has fewer items than TasksPerGame, every item in it is used.
+func selectGameItems(ctx context.Context, tx *sql.Tx, gameID, categoryID string) error {
+	rows, err := tx.QueryContext(ctx, `SELECT id FROM items WHERE category_id = ?`, categoryID)
+	if err != nil {
+		return fmt.Errorf("load item pool: %w", err)
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan item id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows.Close()
+
+	mathrand.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
+	if len(ids) > TasksPerGame {
+		ids = ids[:TasksPerGame]
+	}
+
+	for _, itemID := range ids {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO game_items (game_id, item_id) VALUES (?, ?)
+		`, gameID, itemID); err != nil {
+			return fmt.Errorf("insert game item: %w", err)
+		}
+	}
+	return nil
+}
+
+func loadItemsForGame(ctx context.Context, q queryer, gameID string) ([]models.Item, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT id, category_id, label, display_name FROM items WHERE category_id = ? ORDER BY display_name
-	`, categoryID)
+		SELECT i.id, i.category_id, i.label, i.display_name
+		FROM items i
+		JOIN game_items gi ON gi.item_id = i.id
+		WHERE gi.game_id = ?
+		ORDER BY i.display_name
+	`, gameID)
 	if err != nil {
 		return nil, fmt.Errorf("load items: %w", err)
 	}

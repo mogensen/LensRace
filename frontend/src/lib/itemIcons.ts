@@ -13,6 +13,18 @@ const ICONS: Record<string, string> = {
   dog: '🐶',
   backpack: '🎒',
   bench: '🛋️',
+  keyboard: '⌨️',
+  remote: '📺',
+  vase: '🏺',
+  scissors: '✂️',
+  'teddy bear': '🧸',
+  'potted plant': '🪴',
+  bus: '🚌',
+  truck: '🚚',
+  motorcycle: '🏍️',
+  'stop sign': '🛑',
+  'fire hydrant': '🚒',
+  umbrella: '☂️',
 }
 
 export function itemEmoji(label: string): string {
