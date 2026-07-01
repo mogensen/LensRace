@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
 import type { Item } from '@/lib/api'
 import { itemEmoji } from '@/lib/itemIcons'
 import { avatarEmoji, avatarColor } from '@/lib/avatar'
-import CameraOverlay from '@/components/CameraOverlay.vue'
+
+// Lazy-loaded: this pulls in TensorFlow.js + COCO-SSD, which is hundreds of
+// KB and shouldn't block loading the rest of the Play view for players who
+// haven't tapped SNAP yet.
+const CameraOverlay = defineAsyncComponent(() => import('@/components/CameraOverlay.vue'))
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()

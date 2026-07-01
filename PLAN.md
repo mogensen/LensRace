@@ -13,8 +13,8 @@
 - [x] Select game category (predefined lists)
 - [x] Start game (host only)
 - [x] View item list during gameplay
-- [ ] Camera access for photographing items — capture flow UI exists (aim/scan/done overlay) but targets a manually-picked item, not a live camera feed
-- [ ] Automatic item detection via image recognition
+- [x] Camera access for photographing items — real `getUserMedia` feed in the aim/scan/done overlay
+- [x] Automatic item detection via image recognition — TensorFlow.js COCO-SSD runs on-device against the live feed; manual shutter tap still works as an override
 - [x] Score tracking per player
 - [x] Countdown timer (configurable duration) — server-enforced, ticking client-side display in Play
 - [x] Game end detection (first to complete or time expires)
@@ -24,7 +24,7 @@
 - [ ] **PWA**: Installable, offline-capable
 - [ ] **Offline Mode**: Play without internet, sync when reconnected
 - [x] **Real-time Leaderboard**: Live updates during gameplay
-- [ ] **On-device Image Recognition**: No server processing, privacy-first
+- [x] **On-device Image Recognition**: TensorFlow.js COCO-SSD runs in-browser; captures still hit the backend for scoring/persistence, but no image data is ever sent server-side
 - [ ] **Responsive Design**: Mobile-first, works on all screen sizes
 - [ ] **Accessibility**: Screen reader support, high contrast mode
 
@@ -167,7 +167,7 @@ CREATE INDEX idx_captures_game ON captures(game_id);
 2. ✅ **Game lifecycle API** — create/join/start, player tracking, derived scoring, lazy time-based + first-to-complete game end detection.
 3. ✅ **Real-time** — SSE leaderboard + status broadcast, in-memory cache, background expiry watcher.
 4. ✅ **Frontend skeleton** — Vue + Vite + Tailwind, routing, lobby/join screens (placeholders; design/functionality in later milestones).
-5. **Camera + recognition** — real MediaDevices capture + TensorFlow.js COCO-SSD, replacing the current directed "aim at this item, tap shutter" capture flow with genuine on-device auto-detection.
+5. ✅ **Camera + recognition** — real `getUserMedia` feed + TensorFlow.js COCO-SSD auto-detection against the live video, with manual shutter tap kept as an override.
 6. ✅ **Gameplay loop** — implemented the "Snap Hunt" design end-to-end against the real backend/SSE: home (create/join), lobby (host category picker, live players), play (live timer, progress, item list, leaderboard), camera capture overlay (UI flow only — see milestone 5), results (podium, ranking, confetti).
 7. **PWA + offline** — service worker, installability, offline play with reconnect sync.
 8. **Polish** — accessibility, rate limiting, CI (GitHub Actions), Docker deploy.

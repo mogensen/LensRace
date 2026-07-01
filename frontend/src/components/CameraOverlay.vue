@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useGameStore } from '@/stores/game'
 import type { Item } from '@/lib/api'
 import { itemEmoji } from '@/lib/itemIcons'
+import { detectObjects } from '@/lib/detector'
 
 const props = defineProps<{
   item: Item
@@ -17,17 +18,92 @@ const emit = defineEmits<{
 
 const store = useGameStore()
 
-type Stage = 'aim' | 'scan' | 'done'
+type Stage = 'aim' | 'scan' | 'done' | 'error'
 const stage = ref<Stage>('aim')
+const cameraError = ref('')
+const videoEl = ref<HTMLVideoElement | null>(null)
+
+let mediaStream: MediaStream | null = null
+let detectionTimer: ReturnType<typeof setTimeout> | undefined
+let detectionCancelled = false
+let consecutiveMatches = 0
 
 // Every capture is worth exactly 1 point (score is a derived count of
 // captures server-side), unlike the design prototype's arbitrary +10.
 const POINTS_PER_CAPTURE = 1
 
-// Real ML-based on-device detection lands in a later milestone; for now the
-// "scan" is a directed capture of the item the player tapped in the list.
+// A match needs this many consecutive detection ticks above the score
+// threshold before it auto-triggers a capture, so a single flickery frame
+// doesn't fire a false positive.
+const MATCH_THRESHOLD_TICKS = 2
+const MIN_SCORE = 0.6
+const DETECTION_INTERVAL_MS = 400
+
+onMounted(async () => {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false,
+    })
+    if (videoEl.value) {
+      videoEl.value.srcObject = mediaStream
+      await videoEl.value.play()
+    }
+    stage.value = 'aim'
+    startDetectionLoop()
+  } catch (e) {
+    cameraError.value = e instanceof Error ? e.message : 'Could not access the camera'
+    stage.value = 'error'
+  }
+})
+
+onUnmounted(() => {
+  stopDetectionLoop()
+  mediaStream?.getTracks().forEach((track) => track.stop())
+})
+
+// A self-scheduling setTimeout, not setInterval: COCO-SSD inference can
+// easily take longer than DETECTION_INTERVAL_MS (especially without GPU
+// acceleration), and setInterval would let overlapping calls pile up and
+// starve the main thread. Each tick waits for the previous one to finish.
+function startDetectionLoop() {
+  detectionCancelled = false
+
+  async function tick() {
+    if (detectionCancelled || stage.value !== 'aim' || !videoEl.value) return
+    try {
+      const detections = await detectObjects(videoEl.value)
+      const matched = detections.some(
+        (d) => d.class.toLowerCase() === props.item.label.toLowerCase() && d.score >= MIN_SCORE,
+      )
+      consecutiveMatches = matched ? consecutiveMatches + 1 : 0
+      if (consecutiveMatches >= MATCH_THRESHOLD_TICKS) {
+        onCapture()
+        return
+      }
+    } catch {
+      // Transient detection errors (model still warming up on the first
+      // few ticks) are fine to ignore; the loop just tries again next tick.
+    }
+    if (!detectionCancelled && stage.value === 'aim') {
+      detectionTimer = setTimeout(tick, DETECTION_INTERVAL_MS)
+    }
+  }
+
+  tick()
+}
+
+function stopDetectionLoop() {
+  detectionCancelled = true
+  if (detectionTimer) {
+    clearTimeout(detectionTimer)
+    detectionTimer = undefined
+  }
+}
+
 function onCapture() {
   if (stage.value !== 'aim') return
+  stopDetectionLoop()
   stage.value = 'scan'
 
   setTimeout(() => {
@@ -41,27 +117,48 @@ function onCapture() {
         const message = e instanceof Error ? e.message : 'Could not record capture'
         emit('failed', message)
       })
-  }, 1400)
+  }, 900)
 }
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 z-40 flex flex-col"
-    style="
-      background: radial-gradient(120% 80% at 50% 35%, #4a4236 0%, #2a2419 55%, #141009 100%);
-      animation: sh-fade-up 0.25s ease both;
-    "
-  >
+  <div class="fixed inset-0 z-40 flex flex-col overflow-hidden bg-black">
+    <video
+      ref="videoEl"
+      class="absolute inset-0 h-full w-full object-cover"
+      muted
+      playsinline
+      autoplay
+    ></video>
     <div
       class="pointer-events-none absolute inset-0"
       style="
-        background-image:
-          linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-        background-size: 34px 34px;
+        background: linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 0.35),
+          transparent 20%,
+          transparent 70%,
+          rgba(0, 0, 0, 0.55)
+        );
       "
     ></div>
+
+    <span
+      class="pointer-events-none absolute top-[84px] left-6 h-[30px] w-[30px] rounded-tl-lg border-4 border-r-0 border-b-0"
+      style="border-color: #fff6ea"
+    ></span>
+    <span
+      class="pointer-events-none absolute top-[84px] right-6 h-[30px] w-[30px] rounded-tr-lg border-4 border-b-0 border-l-0"
+      style="border-color: #fff6ea"
+    ></span>
+    <span
+      class="pointer-events-none absolute bottom-[188px] left-6 h-[30px] w-[30px] rounded-bl-lg border-4 border-t-0 border-r-0"
+      style="border-color: #fff6ea"
+    ></span>
+    <span
+      class="pointer-events-none absolute right-6 bottom-[188px] h-[30px] w-[30px] rounded-br-lg border-4 border-t-0 border-l-0"
+      style="border-color: #fff6ea"
+    ></span>
 
     <div class="relative z-[2] flex items-center gap-2.5 px-5 pt-4">
       <button
@@ -93,12 +190,6 @@ function onCapture() {
 
     <div class="relative z-[2] flex flex-1 items-center justify-center">
       <div v-if="stage === 'aim'" class="flex flex-col items-center gap-3.5">
-        <div
-          class="text-8xl opacity-30"
-          style="filter: grayscale(0.3); animation: sh-bob 2.4s ease-in-out infinite"
-        >
-          {{ itemEmoji(item.label) }}
-        </div>
         <div class="relative">
           <span
             class="absolute -inset-[18px] rounded-full border-[3px]"
@@ -112,8 +203,11 @@ function onCapture() {
             style="border-color: rgba(255, 246, 234, 0.85)"
           ></span>
         </div>
-        <div class="text-sm font-bold" style="color: rgba(255, 246, 234, 0.8)">
-          point at the {{ item.displayName.toLowerCase() }}
+        <div
+          class="rounded-full px-3 py-1 text-sm font-bold"
+          style="background: rgba(0, 0, 0, 0.4); color: rgba(255, 246, 234, 0.9)"
+        >
+          hold steady on the {{ item.displayName.toLowerCase() }}
         </div>
       </div>
 
@@ -138,7 +232,7 @@ function onCapture() {
       </div>
 
       <div
-        v-else
+        v-else-if="stage === 'done'"
         class="flex flex-col items-center gap-3.5"
         style="animation: sh-pop-in 0.45s ease both"
       >
@@ -164,6 +258,14 @@ function onCapture() {
           "
         >
           +{{ POINTS_PER_CAPTURE }} point
+        </div>
+      </div>
+
+      <div v-else class="flex flex-col items-center gap-4 px-8 text-center">
+        <div class="text-5xl">📵</div>
+        <div class="sh-title text-xl" style="color: #fff6ea">Camera unavailable</div>
+        <div class="text-sm font-bold" style="color: rgba(255, 246, 234, 0.75)">
+          {{ cameraError }}
         </div>
       </div>
     </div>
