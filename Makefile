@@ -21,8 +21,16 @@ install: ## Install backend and frontend dependencies
 	go mod download
 	cd frontend && pnpm install
 
+.PHONY: vendor
+vendor: ## Copy TensorFlow.js/COCO-SSD vendor bundles into frontend/public/vendor
+	# Driven explicitly rather than via pnpm's pre*/post* hooks: those don't
+	# reliably fire here (e.g. npm-run-all's run-p invokes build-only without
+	# triggering prebuild-only), which left public/vendor/ missing and the
+	# in-browser detector 404ing on tf.min.js/coco-ssd.min.js.
+	cd frontend && node scripts/copy-vendor.mjs
+
 .PHONY: dev
-dev: ## Run backend and frontend dev servers together (Ctrl+C stops both)
+dev: vendor ## Run backend and frontend dev servers together (Ctrl+C stops both)
 	@echo "Backend:  http://localhost:$(BACKEND_PORT) (fiber dev if installed, else go run)"
 	@echo "Frontend: http://localhost:$(FRONTEND_PORT)"
 	@trap 'kill 0' EXIT; \
@@ -54,7 +62,7 @@ clean: stop ## Remove build artifacts, dist folders, and the dev database
 	@echo "Cleaned build artifacts and $(DB_PATH)."
 
 .PHONY: build-frontend
-build-frontend: ## Build the frontend (frontend/dist)
+build-frontend: vendor ## Build the frontend (frontend/dist)
 	cd frontend && pnpm build
 
 .PHONY: build-backend
@@ -92,7 +100,7 @@ test-backend: ## Run backend tests (go test ./... -race)
 	go test ./... -race
 
 .PHONY: test-frontend
-test-frontend: ## Run frontend Playwright e2e tests (starts backend + frontend itself)
+test-frontend: vendor ## Run frontend Playwright e2e tests (starts backend + frontend itself)
 	# A forcibly-killed backend (e.g. an interrupted previous run) can leave
 	# a hot journal on this file, which makes new connections stall trying
 	# to recover it — starting from a clean file every run avoids that.

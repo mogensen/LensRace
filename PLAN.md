@@ -14,7 +14,7 @@
 - [x] Start game (host only)
 - [x] View item list during gameplay
 - [x] Camera access for photographing items — real `getUserMedia` feed in the aim/scan/done overlay
-- [x] Automatic item detection via image recognition — TensorFlow.js COCO-SSD runs on-device against the live feed; manual shutter tap still works as an override
+- [x] Automatic item detection via image recognition — TensorFlow.js COCO-SSD runs on-device against the live feed; the shutter button also runs a real detection check on tap rather than capturing unconditionally
 - [x] Score tracking per player
 - [x] Countdown timer (configurable duration) — server-enforced, ticking client-side display in Play
 - [x] Game end detection (first to complete or time expires)
@@ -168,7 +168,7 @@ CREATE INDEX idx_captures_game ON captures(game_id);
 2. ✅ **Game lifecycle API** — create/join/start, player tracking, derived scoring, lazy time-based + first-to-complete game end detection.
 3. ✅ **Real-time** — SSE leaderboard + status broadcast, in-memory cache, background expiry watcher.
 4. ✅ **Frontend skeleton** — Vue + Vite + Tailwind, routing, lobby/join screens (placeholders; design/functionality in later milestones).
-5. ✅ **Camera + recognition** — real `getUserMedia` feed + TensorFlow.js COCO-SSD auto-detection against the live video, with manual shutter tap kept as an override.
+5. ✅ **Camera + recognition** — real `getUserMedia` feed + TensorFlow.js COCO-SSD auto-detection against the live video; a manual shutter tap runs the same check on the current frame rather than capturing unconditionally.
 6. ✅ **Gameplay loop** — implemented the "Snap Hunt" design end-to-end against the real backend/SSE: home (create/join), lobby (host category picker, live players), play (live timer, progress, item list, leaderboard), camera capture overlay (UI flow only — see milestone 5), results (podium, ranking, confetti).
 7. **PWA + offline** — service worker, installability, offline play with reconnect sync.
 8. **Polish** — accessibility, rate limiting, CI (GitHub Actions), Docker deploy.

@@ -22,11 +22,14 @@ type Stage = 'aim' | 'scan' | 'done' | 'error'
 const stage = ref<Stage>('aim')
 const cameraError = ref('')
 const videoEl = ref<HTMLVideoElement | null>(null)
+const notFound = ref(false)
+const detectionTrouble = ref(false)
 
 let mediaStream: MediaStream | null = null
 let detectionTimer: ReturnType<typeof setTimeout> | undefined
 let detectionCancelled = false
 let consecutiveMatches = 0
+let consecutiveErrors = 0
 
 // Every capture is worth exactly 1 point (score is a derived count of
 // captures server-side), unlike the design prototype's arbitrary +10.
@@ -36,8 +39,14 @@ const POINTS_PER_CAPTURE = 1
 // threshold before it auto-triggers a capture, so a single flickery frame
 // doesn't fire a false positive.
 const MATCH_THRESHOLD_TICKS = 2
-const MIN_SCORE = 0.6
+const MIN_SCORE = 0.4
 const DETECTION_INTERVAL_MS = 400
+
+// If detection keeps throwing (as opposed to just not finding a match)
+// for this many consecutive ticks (~2.4s), surface it — otherwise a
+// genuinely broken model (blocked script, no WebGL, etc.) looks
+// identical to "just hasn't found it yet" and is impossible to diagnose.
+const ERROR_WARNING_TICKS = 6
 
 onMounted(async () => {
   try {
@@ -62,6 +71,27 @@ onUnmounted(() => {
   mediaStream?.getTracks().forEach((track) => track.stop())
 })
 
+// Whether a set of detections includes the item we're hunting, above the
+// score threshold. Shared by the passive loop and the manual shutter tap
+// so tapping the shutter can never bypass real verification.
+function matchesItem(detections: Awaited<ReturnType<typeof detectObjects>>): boolean {
+  return detections.some(
+    (d) => d.class.toLowerCase() === props.item.label.toLowerCase() && d.score >= MIN_SCORE,
+  )
+}
+
+// Logs the model's raw output every tick — what it actually saw, not just
+// whether it happened to match — so a "why won't this detect" report can
+// be diagnosed from the browser console instead of guessing (e.g. seeing
+// the right class at 0.52 confidence explains a miss against MIN_SCORE=0.6
+// far better than silence does).
+function logDetections(detections: Awaited<ReturnType<typeof detectObjects>>): void {
+  const seen = detections.length
+    ? detections.map((d) => `${d.class} (${Math.round(d.score * 100)}%)`).join(', ')
+    : '(nothing)'
+  console.log(`[detector] looking for "${props.item.label}" — model saw: ${seen}`)
+}
+
 // A self-scheduling setTimeout, not setInterval: COCO-SSD inference can
 // easily take longer than DETECTION_INTERVAL_MS (especially without GPU
 // acceleration), and setInterval would let overlapping calls pile up and
@@ -73,17 +103,26 @@ function startDetectionLoop() {
     if (detectionCancelled || stage.value !== 'aim' || !videoEl.value) return
     try {
       const detections = await detectObjects(videoEl.value)
-      const matched = detections.some(
-        (d) => d.class.toLowerCase() === props.item.label.toLowerCase() && d.score >= MIN_SCORE,
-      )
-      consecutiveMatches = matched ? consecutiveMatches + 1 : 0
+      logDetections(detections)
+      consecutiveErrors = 0
+      detectionTrouble.value = false
+      consecutiveMatches = matchesItem(detections) ? consecutiveMatches + 1 : 0
       if (consecutiveMatches >= MATCH_THRESHOLD_TICKS) {
-        onCapture()
+        beginCapture()
         return
       }
-    } catch {
+    } catch (e) {
       // Transient detection errors (model still warming up on the first
-      // few ticks) are fine to ignore; the loop just tries again next tick.
+      // few ticks) are fine — the loop just tries again next tick. But if
+      // it's still failing after ERROR_WARNING_TICKS in a row, that's not
+      // "hasn't found it yet", it's genuinely broken, so surface it.
+      consecutiveErrors += 1
+      if (consecutiveErrors === 1) {
+        console.error('[detector] detection failed:', e)
+      }
+      if (consecutiveErrors >= ERROR_WARNING_TICKS) {
+        detectionTrouble.value = true
+      }
     }
     if (!detectionCancelled && stage.value === 'aim') {
       detectionTimer = setTimeout(tick, DETECTION_INTERVAL_MS)
@@ -101,7 +140,38 @@ function stopDetectionLoop() {
   }
 }
 
-function onCapture() {
+// The shutter button runs one real detection pass on the current frame —
+// it does NOT skip verification. A manual tap only needs a single match
+// (vs. the passive loop's MATCH_THRESHOLD_TICKS) since it's a deliberate,
+// one-off action rather than continuous background polling that needs
+// debouncing against transient false positives.
+async function onShutterTap() {
+  if (stage.value !== 'aim' || !videoEl.value) return
+
+  let matched = false
+  try {
+    const detections = await detectObjects(videoEl.value)
+    logDetections(detections)
+    matched = matchesItem(detections)
+  } catch (e) {
+    // Detection failure on a manual tap is treated as "not found" below,
+    // not a silent success — but it's still logged so a genuinely broken
+    // model doesn't look identical to "just didn't see it".
+    console.error('[detector] shutter-tap detection failed:', e)
+  }
+
+  if (!matched) {
+    notFound.value = true
+    setTimeout(() => {
+      notFound.value = false
+    }, 1200)
+    return
+  }
+
+  beginCapture()
+}
+
+function beginCapture() {
   if (stage.value !== 'aim') return
   stopDetectionLoop()
   stage.value = 'scan'
@@ -205,9 +275,20 @@ function onCapture() {
         </div>
         <div
           class="rounded-full px-3 py-1 text-sm font-bold"
-          style="background: rgba(0, 0, 0, 0.4); color: rgba(255, 246, 234, 0.9)"
+          :style="
+            notFound
+              ? 'background: var(--sh-orange); color: #fff; animation: sh-wiggle .4s ease-in-out'
+              : 'background: rgba(0, 0, 0, 0.4); color: rgba(255, 246, 234, 0.9)'
+          "
         >
-          hold steady on the {{ item.displayName.toLowerCase() }}
+          {{ notFound ? `can't see the ${item.displayName.toLowerCase()} — try again` : `hold steady on the ${item.displayName.toLowerCase()}` }}
+        </div>
+        <div
+          v-if="detectionTrouble"
+          class="rounded-full px-3 py-1 text-xs font-bold"
+          style="background: rgba(255, 107, 61, 0.9); color: #fff"
+        >
+          ⚠ detection trouble — check the console, or try closing and reopening the camera
         </div>
       </div>
 
@@ -275,7 +356,7 @@ function onCapture() {
         v-if="stage === 'aim'"
         class="relative h-[84px] w-[84px] rounded-full"
         style="background: #fff6ea; border: 6px solid rgba(255, 255, 255, 0.45)"
-        @click="onCapture"
+        @click="onShutterTap"
       >
         <span
           class="absolute inset-[9px] rounded-full border-[3px]"

@@ -46,7 +46,15 @@ function loadModel(): Promise<CocoSsdModel> {
       await loadScript('/vendor/coco-ssd.min.js')
       if (!window.cocoSsd) throw new Error('coco-ssd failed to load')
       return window.cocoSsd.load()
-    })()
+    })().catch((err: unknown) => {
+      // Don't cache a permanently-failed load: a transient hiccup (slow
+      // network on first camera open, script briefly unavailable) would
+      // otherwise poison every detection attempt for the rest of the
+      // session, since this promise is a module-level singleton. Clearing
+      // it lets the next call retry from scratch.
+      modelPromise = null
+      throw err
+    })
   }
   return modelPromise
 }
