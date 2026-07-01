@@ -154,7 +154,9 @@ Available endpoints so far:
 There's no auth/session layer yet — `playerId` is handed back in the create/join
 response and the client is expected to hold onto it for `start`/`captures` calls.
 A game auto-finishes when its `durationSeconds` elapses or when a player
-captures every item in the category. Expiry is detected proactively by a
+captures every item in the game's task list — a random subset of the
+category's item pool, drawn once when the game is created (or when the host
+changes its category). Expiry is detected proactively by a
 background watcher (checks an in-memory cache every second, so SSE clients see
 the `finished` status pushed to them — no need to poll), not just lazily on the
 next request.
