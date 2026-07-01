@@ -20,9 +20,10 @@ COPY --from=frontend /app/frontend/dist ./frontend/dist
 RUN CGO_ENABLED=0 go build -tags embed_frontend -o /out/server .
 
 FROM alpine:3.20
-RUN adduser -D -u 10001 app && mkdir -p /data && chown app:app /data
+RUN apk add --no-cache su-exec && adduser -D -u 10001 app
 WORKDIR /app
 COPY --from=backend /out/server ./server
-USER app
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 EXPOSE 3000
-ENTRYPOINT ["./server"]
+ENTRYPOINT ["./entrypoint.sh"]
