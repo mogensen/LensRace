@@ -31,10 +31,16 @@ dev: ## Run backend and frontend dev servers together (Ctrl+C stops both)
 	wait
 
 .PHONY: stop
-stop: ## Stop any running dev/combined servers on the configured ports
+stop: ## Stop any running dev/combined servers on the configured ports, plus any tunnel from 'make public'
 	-lsof -ti:$(BACKEND_PORT) | xargs kill 2>/dev/null
 	-lsof -ti:$(FRONTEND_PORT) | xargs kill 2>/dev/null
-	@echo "Stopped any processes listening on :$(BACKEND_PORT) and :$(FRONTEND_PORT)."
+	# Tunnel processes (started by 'make public') don't listen on either
+	# port above — they connect *out* to the tunnel provider — so they
+	# need to be matched and stopped separately.
+	-pkill -f '^ngrok http' 2>/dev/null
+	-pkill -f '^cloudflared tunnel' 2>/dev/null
+	-pkill -f 'localtunnel --port' 2>/dev/null
+	@echo "Stopped any processes listening on :$(BACKEND_PORT)/:$(FRONTEND_PORT) and any tunnel (ngrok/cloudflared/localtunnel)."
 
 .PHONY: clean
 clean: stop ## Remove build artifacts, dist folders, and the dev database
