@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: lensrace
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter # disks require a paid plan; Free tier has no persistent storage
+    healthCheckPath: /api/health
+    envVars:
+      - key: DB_PATH
+        value: /data/lensrace.db
+    disk:
+      name: lensrace-data
+      mountPath: /data
+      sizeGB: 1

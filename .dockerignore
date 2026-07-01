@@ -1,0 +1,10 @@
+.git
+bin/
+*.db
+*.db-journal
+frontend/node_modules
+frontend/dist
+frontend/public/vendor
+frontend/test-results
+frontend/playwright-report
+frontend/.eslintcache

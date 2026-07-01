@@ -264,10 +264,25 @@ phone or sharing a running instance without deploying anywhere.
 
 ## 🐳 Production build (Docker)
 
-Not set up yet (tracked as a later "Polish" milestone in `PLAN.md`) — for
-now, `make build`/`make run` gets you the same single-process deployable
-artifact without needing Docker at all. Once a `Dockerfile` exists, it
-should just wrap that same `make build` step.
+```sh
+docker build -t lensrace .
+docker run -p 3000:3000 -e DB_PATH=/data/lensrace.db -v lensrace-data:/data lensrace
+```
+
+The `Dockerfile` is a multi-stage build (Node to build the frontend, Go to
+embed it and compile the binary, then a minimal Alpine runtime image) —
+Render's native runtimes are single-language, so this repo needs Docker to
+build both halves in one place. Same non-root/persistent-volume shape as
+`docker run` above is what `render.yaml` configures for a real deploy.
+
+### Deploying to Render
+
+`render.yaml` defines a Docker web service with a persistent disk mounted
+at `/data` (SQLite needs a real disk — Render's Free tier has none, so this
+requires a paid instance type). From the Render dashboard: **New >
+Blueprint**, point it at this repo, and it picks up `render.yaml`
+automatically. Health checks hit `/api/health`; `PORT` is supplied by
+Render and already read via `config.Load()`.
 
 ---
 
