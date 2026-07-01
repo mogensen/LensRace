@@ -155,6 +155,7 @@ CREATE INDEX idx_captures_game ON captures(game_id);
 | GET    | `/api/games/:id`              | Game state (players, status, items)          |
 | POST   | `/api/games/:id/join`         | Join a game with a name                      |
 | PATCH  | `/api/games/:id/category`     | Change category while waiting (host only)    |
+| PATCH  | `/api/games/:id/duration`     | Change round length while waiting (host only) |
 | POST   | `/api/games/:id/start`        | Start the game (host only)                   |
 | POST   | `/api/games/:id/captures`     | Record a detected item for the player        |
 | GET    | `/api/games/:id/events`       | **SSE** stream: live leaderboard + status    |

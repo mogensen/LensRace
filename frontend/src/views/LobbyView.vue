@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, watch, ref } from 'vue'
+import { onMounted, watch, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
 import { listCategories, ApiError, type Category } from '@/lib/api'
@@ -13,12 +13,21 @@ const store = useGameStore()
 const categories = ref<Category[]>([])
 const error = ref('')
 
+// The backend accepts any duration from 30s to 3600s, but a scavenger hunt
+// round realistically wants to be short — this range (and the 300s
+// default) come from the original design's own roundSeconds prop.
+const DURATION_MIN = 60
+const DURATION_MAX = 600
+const DURATION_STEP = 30
+const localDuration = ref(300)
+
 onMounted(async () => {
   const ok = await store.ensureSession(props.id)
   if (!ok) {
     await router.replace({ name: 'home' })
     return
   }
+  localDuration.value = store.state.gameState?.game.durationSeconds ?? 300
   try {
     categories.value = await listCategories()
   } catch {
@@ -26,6 +35,29 @@ onMounted(async () => {
     // gameState, the picker options just won't render.
   }
 })
+
+// The host drags the slider freely (local, no network calls per tick);
+// everyone else just reflects the server's current value. Only committing
+// on "change" (drag release) rather than every "input" tick avoids
+// spamming the API — and every player, not just the host, sees the
+// broadcasted result live via SSE.
+const durationLabel = computed(() => {
+  const seconds = store.isHost
+    ? localDuration.value
+    : (store.state.gameState?.game.durationSeconds ?? 300)
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return secs === 0 ? `${mins} min` : `${mins} min ${secs}s`
+})
+
+async function onDurationChange() {
+  error.value = ''
+  try {
+    await store.changeDuration(localDuration.value)
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Could not change round length'
+  }
+}
 
 watch(
   () => store.state.gameState?.game.status,
@@ -100,6 +132,28 @@ async function onStart() {
           {{ c.id === store.state.gameState.game.categoryId ? '✓' : '' }}
         </span>
       </button>
+    </div>
+
+    <div class="sh-title mb-2 text-base">Round length</div>
+    <div class="sh-card mb-4 flex flex-col gap-1.5 px-3.5 py-2.5">
+      <div class="flex items-center justify-between text-sm font-extrabold">
+        <span data-testid="duration-label">⏱ {{ durationLabel }}</span>
+        <span v-if="!store.isHost" class="text-xs font-bold" style="color: var(--sh-muted)">
+          set by host
+        </span>
+      </div>
+      <input
+        v-if="store.isHost"
+        v-model.number="localDuration"
+        data-testid="duration-input"
+        type="range"
+        :min="DURATION_MIN"
+        :max="DURATION_MAX"
+        :step="DURATION_STEP"
+        class="w-full"
+        style="accent-color: var(--sh-orange)"
+        @change="onDurationChange"
+      />
     </div>
 
     <div class="sh-title mb-2 flex items-center gap-2 text-base">

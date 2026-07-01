@@ -123,6 +123,17 @@ export function setCategory(
   })
 }
 
+export function setDuration(
+  idOrCode: string,
+  playerId: string,
+  durationSeconds: number,
+): Promise<GameState> {
+  return request('PATCH', `/games/${encodeURIComponent(idOrCode)}/duration`, {
+    playerId,
+    durationSeconds,
+  })
+}
+
 export function startGame(idOrCode: string, playerId: string): Promise<GameState> {
   return request('POST', `/games/${encodeURIComponent(idOrCode)}/start`, { playerId })
 }

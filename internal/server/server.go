@@ -51,6 +51,7 @@ func New(conn *sql.DB, hub *realtime.Hub) *fiber.App {
 	api.Get("/games/:id", games.Get)
 	api.Post("/games/:id/join", games.Join)
 	api.Patch("/games/:id/category", games.SetCategory)
+	api.Patch("/games/:id/duration", games.SetDuration)
 	api.Post("/games/:id/start", games.Start)
 	api.Post("/games/:id/captures", games.Capture)
 	api.Get("/games/:id/events", games.Events)

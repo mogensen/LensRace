@@ -235,6 +235,57 @@ func TestSetCategoryUnknownCategory(t *testing.T) {
 	}
 }
 
+func TestSetDurationUpdatesGame(t *testing.T) {
+	s := newTestStore(t)
+	gameID, hostID := mustCreateGame(t, s, DefaultDurationSeconds)
+
+	state, err := s.SetDuration(context.Background(), gameID, hostID, 180)
+	if err != nil {
+		t.Fatalf("SetDuration: %v", err)
+	}
+	if state.Game.DurationSeconds != 180 {
+		t.Fatalf("durationSeconds = %d, want 180", state.Game.DurationSeconds)
+	}
+}
+
+func TestSetDurationRequiresHost(t *testing.T) {
+	s := newTestStore(t)
+	gameID, _ := mustCreateGame(t, s, DefaultDurationSeconds)
+
+	_, _, err := s.JoinGame(context.Background(), gameID, "Bob")
+	if err != nil {
+		t.Fatalf("JoinGame: %v", err)
+	}
+	state, err := s.GetGameState(context.Background(), gameID)
+	if err != nil {
+		t.Fatalf("GetGameState: %v", err)
+	}
+	var guestID string
+	for _, p := range state.Players {
+		if !p.IsHost {
+			guestID = p.ID
+		}
+	}
+
+	_, err = s.SetDuration(context.Background(), gameID, guestID, 180)
+	if !errors.Is(err, ErrNotHost) {
+		t.Fatalf("err = %v, want ErrNotHost", err)
+	}
+}
+
+func TestSetDurationRejectsAfterStart(t *testing.T) {
+	s := newTestStore(t)
+	gameID, hostID := mustCreateGame(t, s, DefaultDurationSeconds)
+	if _, err := s.StartGame(context.Background(), gameID, hostID); err != nil {
+		t.Fatalf("StartGame: %v", err)
+	}
+
+	_, err := s.SetDuration(context.Background(), gameID, hostID, 180)
+	if !errors.Is(err, ErrGameNotWaiting) {
+		t.Fatalf("err = %v, want ErrGameNotWaiting", err)
+	}
+}
+
 func TestRecordCaptureRequiresPlayingGame(t *testing.T) {
 	s := newTestStore(t)
 	gameID, hostID := mustCreateGame(t, s, DefaultDurationSeconds)

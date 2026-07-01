@@ -25,8 +25,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* Opt out of parallel tests on CI. Locally, cap well below Playwright's
+   * default (CPU count) — several tests open two browser contexts each
+   * (host+guest) against one shared Go+SQLite backend, and running 3
+   * browser engines at full worker parallelism reliably starved that
+   * backend under real load (ECONNREFUSED / timeouts unrelated to any
+   * specific test, reproducible across unrelated pre-existing tests). */
+  workers: process.env.CI ? 1 : 2,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */

@@ -54,8 +54,8 @@ function disconnect() {
   state.connected = false
 }
 
-async function createGame(categoryId: string, hostName: string) {
-  const session = await api.createGame(categoryId, hostName)
+async function createGame(categoryId: string, hostName: string, durationSeconds?: number) {
+  const session = await api.createGame(categoryId, hostName, durationSeconds)
   state.playerId = session.playerId
   state.gameState = session
   saveSession({ gameId: session.game.id, playerId: session.playerId })
@@ -101,6 +101,11 @@ async function changeCategory(categoryId: string) {
   await api.setCategory(state.gameState.game.id, state.playerId, categoryId)
 }
 
+async function changeDuration(durationSeconds: number) {
+  if (!state.gameState) return
+  await api.setDuration(state.gameState.game.id, state.playerId, durationSeconds)
+}
+
 async function start() {
   if (!state.gameState) return
   await api.startGame(state.gameState.game.id, state.playerId)
@@ -136,6 +141,7 @@ export function useGameStore() {
     joinGame,
     ensureSession,
     changeCategory,
+    changeDuration,
     start,
     capture,
     reset,

@@ -38,6 +38,47 @@ test.describe('creating a game', () => {
   })
 })
 
+test.describe('lobby round length', () => {
+  test('defaults to 5 min, is host-editable, and updates live for every player', async ({
+    browser,
+  }) => {
+    const hostContext = await browser.newContext()
+    const guestContext = await browser.newContext()
+    const hostPage = await hostContext.newPage()
+    const guestPage = await guestContext.newPage()
+
+    await createGame(hostPage, 'Alice')
+    const code = await getJoinCode(hostPage)
+
+    await guestPage.goto('/')
+    await guestPage.getByTestId('name-input').fill('Bob')
+    await guestPage.getByTestId('join-code-input').fill(code)
+    await guestPage.getByTestId('join-game-button').click()
+    await guestPage.waitForURL(/\/games\/.+\/lobby/)
+
+    // Default duration is visible to both, but only the host can edit it.
+    await expect(hostPage.getByTestId('duration-label')).toContainText('5 min')
+    await expect(guestPage.getByTestId('duration-label')).toContainText('5 min')
+    await expect(guestPage.getByTestId('duration-input')).toHaveCount(0)
+
+    await hostPage.getByTestId('duration-input').fill('180')
+    await hostPage.getByTestId('duration-input').dispatchEvent('change')
+    await expect(hostPage.getByTestId('duration-label')).toContainText('3 min')
+
+    // Guest's lobby updates live (via SSE) to show the new duration, with
+    // no reload — the whole point of moving this control to the lobby.
+    await expect(guestPage.getByTestId('duration-label')).toContainText('3 min')
+
+    const gameId = hostPage.url().match(/\/games\/([^/]+)\/lobby/)![1]
+    const res = await hostPage.request.get(`/api/games/${gameId}`)
+    const data = await res.json()
+    expect(data.game.durationSeconds).toBe(180)
+
+    await hostContext.close()
+    await guestContext.close()
+  })
+})
+
 test.describe('joining a game', () => {
   test('joins with a valid code and both players see each other live', async ({ browser }) => {
     const hostContext = await browser.newContext()

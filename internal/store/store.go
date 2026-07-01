@@ -257,6 +257,46 @@ func (s *Store) SetCategory(ctx context.Context, idOrCode, playerID, categoryID 
 	return s.getGameStateByID(ctx, id)
 }
 
+// SetDuration changes a waiting game's round duration. Only the host may
+// do this, and only before the game has started. The caller is
+// responsible for range-checking durationSeconds against
+// MinDurationSeconds/MaxDurationSeconds.
+func (s *Store) SetDuration(ctx context.Context, idOrCode, playerID string, durationSeconds int) (*models.GameState, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	id, err := resolveGameID(ctx, tx, idOrCode)
+	if err != nil {
+		return nil, err
+	}
+	game, err := loadGame(ctx, tx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := expireIfNeeded(ctx, tx, game); err != nil {
+		return nil, err
+	}
+	if game.HostID == nil || *game.HostID != playerID {
+		return nil, ErrNotHost
+	}
+	if game.Status != "waiting" {
+		return nil, ErrGameNotWaiting
+	}
+
+	if _, err := tx.ExecContext(ctx, `UPDATE games SET duration_seconds = ? WHERE id = ?`, durationSeconds, id); err != nil {
+		return nil, fmt.Errorf("set duration: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
+	}
+
+	return s.getGameStateByID(ctx, id)
+}
+
 // RecordCapture records a player capturing an item. If the player has then
 // captured every item in the category, the game finishes immediately
 // (first to complete).

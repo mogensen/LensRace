@@ -251,6 +251,46 @@ func TestSetCategoryEndpoint(t *testing.T) {
 	}
 }
 
+func TestSetDurationEndpoint(t *testing.T) {
+	app := server.New(newTestApp(t), realtime.New())
+
+	var created sessionBody
+	doJSON(t, app, "POST", "/api/games", map[string]any{
+		"categoryId": "house-essentials",
+		"hostName":   "Alice",
+	}, &created)
+	gameID := created.Game.ID
+	hostID := created.PlayerID
+
+	var updated models.GameState
+	rec := doJSON(t, app, "PATCH", "/api/games/"+gameID+"/duration", map[string]any{
+		"playerId":        hostID,
+		"durationSeconds": 180,
+	}, &updated)
+	if rec != fiber.StatusOK {
+		t.Fatalf("status = %d, want %d", rec, fiber.StatusOK)
+	}
+	if updated.Game.DurationSeconds != 180 {
+		t.Fatalf("durationSeconds = %d, want 180", updated.Game.DurationSeconds)
+	}
+
+	tooShort := doJSON(t, app, "PATCH", "/api/games/"+gameID+"/duration", map[string]any{
+		"playerId":        hostID,
+		"durationSeconds": 5,
+	}, nil)
+	if tooShort != fiber.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", tooShort, fiber.StatusBadRequest)
+	}
+
+	forbidden := doJSON(t, app, "PATCH", "/api/games/"+gameID+"/duration", map[string]any{
+		"playerId":        "not-a-player",
+		"durationSeconds": 180,
+	}, nil)
+	if forbidden != fiber.StatusForbidden {
+		t.Fatalf("status = %d, want %d", forbidden, fiber.StatusForbidden)
+	}
+}
+
 func TestGetGameNotFound(t *testing.T) {
 	app := server.New(newTestApp(t), realtime.New())
 

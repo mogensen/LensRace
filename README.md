@@ -146,6 +146,7 @@ Available endpoints so far:
 | GET    | `/api/games/:id`             | Game state — `:id` accepts either the internal ID or the public join code |
 | POST   | `/api/games/:id/join`        | Join a waiting game (body: `name`)                   |
 | PATCH  | `/api/games/:id/category`    | Change category while waiting (body: `playerId`, `categoryId`; host only) |
+| PATCH  | `/api/games/:id/duration`    | Change round length while waiting (body: `playerId`, `durationSeconds`; host only) |
 | POST   | `/api/games/:id/start`       | Start the game (body: `playerId`; host only)         |
 | POST   | `/api/games/:id/captures`    | Record a captured item (body: `playerId`, `itemId`, optional `confidence`) |
 | GET    | `/api/games/:id/events`      | **SSE** stream of the full game state on every change (status + leaderboard) |
@@ -209,7 +210,7 @@ prototype's simulated bot opponents.
 | Route               | View          | Purpose                                                  |
 | -------------------- | -------------- | ---------------------------------------------------------|
 | `/`                   | `HomeView`     | Create a game or join one with a code                    |
-| `/games/:id/lobby`    | `LobbyView`    | Share the join code, host picks category, players + start|
+| `/games/:id/lobby`    | `LobbyView`    | Share the join code, host picks category + round length, players + start|
 | `/games/:id/play`     | `PlayView`     | Live timer, progress, item list, leaderboard, SNAP button|
 | `/games/:id/results`  | `ResultsView`  | Podium, full ranking, confetti, play again                |
 
@@ -221,7 +222,7 @@ Supporting structure:
 - `src/lib/detector.ts` — loads TensorFlow.js/COCO-SSD. **Not** an ES import: it injects `<script>` tags pointing at `public/vendor/{tf,coco-ssd}.min.js` (copied from `node_modules` by `scripts/copy-vendor.mjs`, wired into `postinstall`/`predev`/`prebuild-only`). Reason: `tfjs-converter` has a class method literally named `import` (`async import(keys, values) {}`), and Vite's lightweight import-scanner misreads `import(` there as a dynamic-import call, corrupting the file — this happens in Vite's transform pipeline itself, so `optimizeDeps` include/exclude doesn't help. Loading via `<script>` sidesteps Vite's JS transform for these files entirely, and as a bonus keeps the ~1.4MB payload out of the initial bundle (`CameraOverlay` is lazy-loaded and only injects the scripts when the camera actually opens).
 - `src/lib/{avatar,itemIcons,categoryIcons}.ts` — small client-side cosmetic lookups (emoji/color) for players/items/categories, since the backend doesn't model those.
 
-One backend addition came out of implementing this design: `PATCH /api/games/:id/category` lets the host change category from the lobby (the design picks category *after* creating the game, not at creation time).
+Two backend additions came out of implementing this design: `PATCH /api/games/:id/category` and `PATCH /api/games/:id/duration` let the host change category and round length from the lobby (both are set *after* creating the game, not at creation time) — both broadcast over SSE, so every player's lobby updates live, not just the host's.
 
 ---
 

@@ -5,6 +5,9 @@ FRONTEND_PORT ?= 5173
 DB_PATH ?= lensrace.db
 BINARY := bin/server
 
+# Must match playwright.config.ts's webServer DB_PATH.
+E2E_DB_PATH := /tmp/lensrace-playwright-e2e.db
+
 .DEFAULT_GOAL := help
 
 .PHONY: help
@@ -84,6 +87,10 @@ test-backend: ## Run backend tests (go test ./... -race)
 
 .PHONY: test-frontend
 test-frontend: ## Run frontend Playwright e2e tests (starts backend + frontend itself)
+	# A forcibly-killed backend (e.g. an interrupted previous run) can leave
+	# a hot journal on this file, which makes new connections stall trying
+	# to recover it — starting from a clean file every run avoids that.
+	rm -f $(E2E_DB_PATH) $(E2E_DB_PATH)-journal
 	cd frontend && pnpm exec playwright test
 
 .PHONY: lint

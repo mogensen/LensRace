@@ -47,6 +47,11 @@ type setCategoryRequest struct {
 	CategoryID string `json:"categoryId"`
 }
 
+type setDurationRequest struct {
+	PlayerID        string `json:"playerId"`
+	DurationSeconds int    `json:"durationSeconds"`
+}
+
 type captureRequest struct {
 	PlayerID   string   `json:"playerId"`
 	ItemID     string   `json:"itemId"`
@@ -145,6 +150,29 @@ func (h *GameHandler) SetCategory(c *fiber.Ctx) error {
 	}
 
 	state, err := h.Store.SetCategory(context.Background(), c.Params("id"), req.PlayerID, req.CategoryID)
+	if err != nil {
+		return mapStoreError(err)
+	}
+	h.Hub.Publish(state.Game.ID, *state)
+
+	return c.JSON(state)
+}
+
+// SetDuration handles PATCH /api/games/:id/duration.
+func (h *GameHandler) SetDuration(c *fiber.Ctx) error {
+	var req setDurationRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	if strings.TrimSpace(req.PlayerID) == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "playerId is required")
+	}
+	if req.DurationSeconds < store.MinDurationSeconds || req.DurationSeconds > store.MaxDurationSeconds {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf(
+			"durationSeconds must be between %d and %d", store.MinDurationSeconds, store.MaxDurationSeconds))
+	}
+
+	state, err := h.Store.SetDuration(context.Background(), c.Params("id"), req.PlayerID, req.DurationSeconds)
 	if err != nil {
 		return mapStoreError(err)
 	}
