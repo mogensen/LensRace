@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useGameStore } from '@/stores/game'
 import type { Item } from '@/lib/api'
 import { itemEmoji } from '@/lib/itemIcons'
@@ -14,6 +15,7 @@ const CameraOverlay = defineAsyncComponent(() => import('@/components/CameraOver
 const props = defineProps<{ id: string }>()
 const router = useRouter()
 const store = useGameStore()
+const { t } = useI18n()
 
 const activeItem = ref<Item | null>(null)
 const error = ref('')
@@ -129,17 +131,19 @@ function onCaptureFailed(message: string) {
           </span>
           <b class="sh-title text-base"
             >{{ store.me?.score ?? 0
-            }}<span class="text-xs font-bold" style="color: var(--sh-muted)"> pts</span></b
+            }}<span class="text-xs font-bold" style="color: var(--sh-muted)">
+              {{ t('play.points') }}</span
+            ></b
           >
         </div>
       </div>
 
       <div>
         <div class="mb-1 flex items-baseline justify-between">
-          <span class="sh-title text-lg">Find these {{ totalItems }}</span>
-          <span class="text-sm font-extrabold" style="color: var(--sh-green)"
-            >{{ foundCount }}/{{ totalItems }} found</span
-          >
+          <span class="sh-title text-lg">{{ t('play.findThese', { count: totalItems }) }}</span>
+          <span class="text-sm font-extrabold" style="color: var(--sh-green)">{{
+            t('play.foundCount', { found: foundCount, total: totalItems })
+          }}</span>
         </div>
         <div
           class="h-3 overflow-hidden rounded-lg border-2"
@@ -157,7 +161,7 @@ function onCaptureFailed(message: string) {
         class="flex items-center gap-2 rounded-2xl border border-dashed px-2.5 py-1.5"
         style="background: #fff4e6; border-color: #e8c79a"
       >
-        <span class="text-xs font-extrabold" style="color: #c79a5e">LIVE</span>
+        <span class="text-xs font-extrabold" style="color: #c79a5e">{{ t('play.live') }}</span>
         <span
           v-for="p in otherPlayers"
           :key="p.id"
@@ -247,6 +251,6 @@ function onCaptureFailed(message: string) {
     />
   </main>
   <main v-else class="sh-app flex min-h-screen items-center justify-center">
-    <p class="font-bold" style="color: var(--sh-muted)">Loading…</p>
+    <p class="font-bold" style="color: var(--sh-muted)">{{ t('common.loading') }}</p>
   </main>
 </template>

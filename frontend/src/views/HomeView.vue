@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useGameStore } from '@/stores/game'
 import { ApiError, listCategories, type Category } from '@/lib/api'
 
 const router = useRouter()
 const store = useGameStore()
+const { t } = useI18n()
 
 const name = ref('')
 const joinCode = ref('')
@@ -17,13 +19,13 @@ onMounted(async () => {
   try {
     categories.value = await listCategories()
   } catch {
-    error.value = 'Could not reach the server. Is the backend running?'
+    error.value = t('home.errors.serverUnreachable')
   }
 })
 
 function requireName(): boolean {
   if (!name.value.trim()) {
-    error.value = 'Enter your name first'
+    error.value = t('home.errors.enterName')
     return false
   }
   return true
@@ -38,7 +40,7 @@ async function onCreate() {
     const session = await store.createGame(defaultCategory.id, name.value.trim())
     await router.push({ name: 'lobby', params: { id: session.game.id } })
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Could not create game'
+    error.value = e instanceof ApiError ? e.message : t('home.errors.createFailed')
   } finally {
     loading.value = null
   }
@@ -47,7 +49,7 @@ async function onCreate() {
 async function onJoin() {
   if (!requireName()) return
   if (!joinCode.value.trim()) {
-    error.value = 'Enter a game code'
+    error.value = t('home.errors.enterCode')
     return
   }
   loading.value = 'join'
@@ -56,7 +58,7 @@ async function onJoin() {
     const session = await store.joinGame(joinCode.value.trim(), name.value.trim())
     await router.push({ name: 'lobby', params: { id: session.game.id } })
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Could not join game'
+    error.value = e instanceof ApiError ? e.message : t('home.errors.joinFailed')
   } finally {
     loading.value = null
   }
@@ -88,7 +90,7 @@ const canCreate = computed(() => categories.value.length > 0 && loading.value ==
         <div class="text-center">
           <h1 class="sh-title text-[44px] leading-[0.92] tracking-tight">SNAP<br />HUNT</h1>
           <p class="mt-2 text-base font-bold" style="color: var(--sh-muted)">
-            Race to photograph everything!
+            {{ t('home.tagline') }}
           </p>
         </div>
       </div>
@@ -96,7 +98,7 @@ const canCreate = computed(() => categories.value.length > 0 && loading.value ==
       <input
         v-model="name"
         data-testid="name-input"
-        placeholder="Your name"
+        :placeholder="t('home.namePlaceholder')"
         maxlength="20"
         class="sh-input px-4 py-3 text-center text-lg"
       />
@@ -107,12 +109,12 @@ const canCreate = computed(() => categories.value.length > 0 && loading.value ==
         :disabled="!canCreate"
         @click="onCreate"
       >
-        {{ loading === 'create' ? 'Creating…' : '🎮 Create a game' }}
+        {{ loading === 'create' ? t('home.creatingButton') : `🎮 ${t('home.createButton')}` }}
       </button>
 
       <div class="flex items-center gap-3 text-xs font-extrabold" style="color: #cbb59c">
         <div class="h-[2.5px] flex-1 rounded" style="background: var(--sh-border-light)"></div>
-        OR
+        {{ t('home.or') }}
         <div class="h-[2.5px] flex-1 rounded" style="background: var(--sh-border-light)"></div>
       </div>
 
@@ -120,7 +122,7 @@ const canCreate = computed(() => categories.value.length > 0 && loading.value ==
         <input
           :value="joinCode"
           data-testid="join-code-input"
-          placeholder="CODE"
+          :placeholder="t('home.joinCodePlaceholder')"
           maxlength="6"
           class="sh-input min-w-0 flex-1 py-3 text-center text-2xl tracking-[4px] uppercase"
           @input="onJoinInput"
@@ -131,7 +133,7 @@ const canCreate = computed(() => categories.value.length > 0 && loading.value ==
           :disabled="loading !== null"
           @click="onJoin"
         >
-          {{ loading === 'join' ? '…' : 'Join' }}
+          {{ loading === 'join' ? '…' : t('home.joinButton') }}
         </button>
       </div>
 
