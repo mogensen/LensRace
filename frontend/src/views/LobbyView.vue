@@ -59,7 +59,7 @@ async function onStart() {
       <div class="text-xs font-extrabold tracking-wide" style="color: var(--sh-muted)">
         SHARE THIS CODE
       </div>
-      <div class="mt-2 inline-flex gap-1.5">
+      <div data-testid="join-code" class="mt-2 inline-flex gap-1.5">
         <span
           v-for="(ch, i) in store.state.gameState.game.joinCode.split('')"
           :key="i"
@@ -111,10 +111,11 @@ async function onStart() {
         {{ store.state.gameState.players.length }}
       </span>
     </div>
-    <div class="mb-4 grid grid-cols-2 gap-2.5">
+    <div data-testid="player-list" class="mb-4 grid grid-cols-2 gap-2.5">
       <div
         v-for="p in store.state.gameState.players"
         :key="p.id"
+        data-testid="player-row"
         class="sh-card flex items-center gap-2 p-2.5"
       >
         <span
@@ -141,6 +142,7 @@ async function onStart() {
 
     <button
       v-if="store.isHost"
+      data-testid="start-button"
       class="sh-btn sh-btn-green py-4 text-xl"
       style="animation: sh-bob 2.6s ease-in-out infinite"
       @click="onStart"
@@ -149,13 +151,19 @@ async function onStart() {
     </button>
     <div
       v-else
+      data-testid="waiting-message"
       class="rounded-2xl border-[3px] border-dashed p-4 text-center text-lg font-bold"
       style="border-color: var(--sh-border-dashed); color: var(--sh-muted)"
     >
       ⏳ Waiting for host to start…
     </div>
 
-    <p v-if="error" class="mt-3 text-center text-sm font-bold" style="color: var(--sh-orange)">
+    <p
+      v-if="error"
+      data-testid="lobby-error"
+      class="mt-3 text-center text-sm font-bold"
+      style="color: var(--sh-orange)"
+    >
       {{ error }}
     </p>
   </main>

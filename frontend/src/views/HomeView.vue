@@ -95,12 +95,18 @@ const canCreate = computed(() => categories.value.length > 0 && loading.value ==
 
       <input
         v-model="name"
+        data-testid="name-input"
         placeholder="Your name"
         maxlength="20"
         class="sh-input px-4 py-3 text-center text-lg"
       />
 
-      <button class="sh-btn sh-btn-primary py-4 text-xl" :disabled="!canCreate" @click="onCreate">
+      <button
+        data-testid="create-game-button"
+        class="sh-btn sh-btn-primary py-4 text-xl"
+        :disabled="!canCreate"
+        @click="onCreate"
+      >
         {{ loading === 'create' ? 'Creating…' : '🎮 Create a game' }}
       </button>
 
@@ -113,12 +119,14 @@ const canCreate = computed(() => categories.value.length > 0 && loading.value ==
       <div class="flex gap-2.5">
         <input
           :value="joinCode"
+          data-testid="join-code-input"
           placeholder="CODE"
           maxlength="6"
           class="sh-input min-w-0 flex-1 py-3 text-center text-2xl tracking-[4px] uppercase"
           @input="onJoinInput"
         />
         <button
+          data-testid="join-game-button"
           class="sh-btn sh-btn-yellow px-6 text-lg"
           :disabled="loading !== null"
           @click="onJoin"
@@ -127,7 +135,12 @@ const canCreate = computed(() => categories.value.length > 0 && loading.value ==
         </button>
       </div>
 
-      <p v-if="error" class="text-center text-sm font-bold" style="color: var(--sh-orange)">
+      <p
+        v-if="error"
+        data-testid="home-error"
+        class="text-center text-sm font-bold"
+        style="color: var(--sh-orange)"
+      >
         {{ error }}
       </p>
     </div>

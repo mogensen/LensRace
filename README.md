@@ -158,6 +158,16 @@ pnpm format       # Prettier
 The dev server proxies `/api` to the backend on `:3000` (configured in
 `vite.config.ts`).
 
+`pnpm test:e2e` is fully self-contained: `playwright.config.ts` builds and
+starts the real Go backend (against a dedicated file at
+`/tmp/lensrace-playwright-e2e.db`, not `:memory:` — see the comment there
+for why) alongside the Vite dev server, so you don't need to start either
+by hand first. `e2e/game.spec.ts` covers game creation and joining:
+generated join codes, live SSE-driven player-list updates across two
+browser contexts (host + guest), lowercase-code joins, and the validation/
+error paths (missing name, missing code, unknown code, already-started
+game).
+
 Scaffolded with `create-vue` (TypeScript, Vue Router, ESLint+Prettier,
 Playwright) plus Tailwind CSS v4 via `@tailwindcss/vite`. The UI implements
 the "Snap Hunt" design end-to-end against the real backend — no mock data —
