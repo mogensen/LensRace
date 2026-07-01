@@ -6,9 +6,10 @@ frontend.
 
 See [`PLAN.md`](./PLAN.md) for the full feature set, data model, and roadmap.
 
-> **Status:** early development. Backend skeleton (milestone 1) is in place:
-> Fiber server, SQLite with embedded migrations, seeded categories/items, and a
-> health check. See `PLAN.md` for the remaining milestones.
+> **Status:** core gameplay loop works end-to-end — create/join, lobby,
+> live SSE leaderboard, real on-device camera capture (TensorFlow.js
+> COCO-SSD), results. See `PLAN.md` for what's done and what's left
+> (PWA/offline, accessibility, polish).
 
 ---
 
@@ -33,6 +34,37 @@ Verify it's on your `PATH`:
 ```sh
 fiber version
 ```
+
+---
+
+## 🛠️ Makefile shortcuts
+
+`make help` lists everything; the short version:
+
+| Command               | Does                                                                |
+| ---------------------- | -------------------------------------------------------------------|
+| `make install`          | `go mod download` + `pnpm install`                                 |
+| `make dev`              | Runs backend (`fiber dev`, or `go run .` if the CLI isn't installed) and frontend (`pnpm dev`) together; Ctrl+C stops both |
+| `make stop`             | Kills anything listening on the backend/frontend ports (`:3000`/`:5173`) |
+| `make clean`            | Removes `bin/`, `frontend/dist`, `frontend/public/vendor`, caches, and the dev SQLite database |
+| `make build`            | Builds the frontend, then a single backend binary (`bin/server`) that serves the frontend **and** the API on one port |
+| `make run`              | `make build`, then runs `bin/server`                                |
+| `make public`           | `make build` + runs it + opens a public tunnel to it (ngrok → cloudflared → `npx localtunnel`, whichever is available) |
+| `make test`             | `make test-backend test-frontend`                                  |
+| `make test-backend`     | `go test ./... -race`                                              |
+| `make test-frontend`    | Playwright e2e tests (starts the backend + frontend itself, see `playwright.config.ts`) |
+| `make lint` / `make fmt`| Lint / format both backend and frontend                            |
+
+`BACKEND_PORT`, `FRONTEND_PORT`, and `DB_PATH` are overridable, e.g. `make dev DB_PATH=/tmp/scratch.db`.
+
+`make build`/`make run`/`make public` produce a genuinely single-process
+deployment: the Go binary is compiled with `-tags embed_frontend`, which
+embeds `frontend/dist` via `//go:embed` (see `frontend/embed.go`) and Fiber
+serves it directly (`internal/server/server.go`), with an SPA fallback so
+client-side routes survive a refresh. Without that tag (the default —
+what `go build .` / `go run .` do), the binary has no embedded frontend at
+all and only serves `/api/*`, which is what you want for local dev since
+Vite serves the frontend on its own port instead.
 
 ---
 
@@ -195,7 +227,13 @@ One backend addition came out of implementing this design: `PATCH /api/games/:id
 
 ## 🚀 Running the full stack locally
 
-Open two terminals:
+Fastest path:
+
+```sh
+make dev
+```
+
+Or manually, in two terminals:
 
 ```sh
 # Terminal 1 — backend with live reload (repo root)
@@ -209,15 +247,26 @@ Then open the URL printed by Vite (typically <http://localhost:5173>).
 
 ---
 
-## 🐳 Production build (Docker)
+## 📦 Single-binary build
 
 ```sh
-docker build -t lensrace .
-docker run -p 3000:3000 lensrace
+make build   # frontend build + a Go binary with it embedded (bin/server)
+make run     # build, then run it — one process, one port
 ```
 
-The image builds the Vue frontend, embeds the static assets into the Go binary,
-and serves both the API and the PWA from the Fiber server.
+See the [Makefile shortcuts](#-makefile-shortcuts) section above for how the
+embedding works. `make public` does the same and additionally opens a public
+tunnel to it (ngrok / cloudflared / localtunnel), handy for testing on a
+phone or sharing a running instance without deploying anywhere.
+
+---
+
+## 🐳 Production build (Docker)
+
+Not set up yet (tracked as a later "Polish" milestone in `PLAN.md`) — for
+now, `make build`/`make run` gets you the same single-process deployable
+artifact without needing Docker at all. Once a `Dockerfile` exists, it
+should just wrap that same `make build` step.
 
 ---
 
