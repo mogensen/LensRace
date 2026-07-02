@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useGameStore } from '@/stores/game'
 import type { Item } from '@/lib/api'
 import { itemEmoji } from '@/lib/itemIcons'
@@ -17,6 +18,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useGameStore()
+const { t } = useI18n()
 
 type Stage = 'aim' | 'scan' | 'done' | 'error'
 const stage = ref<Stage>('aim')
@@ -61,7 +63,7 @@ onMounted(async () => {
     stage.value = 'aim'
     startDetectionLoop()
   } catch (e) {
-    cameraError.value = e instanceof Error ? e.message : 'Could not access the camera'
+    cameraError.value = e instanceof Error ? e.message : t('play.cameraAccessFailed')
     stage.value = 'error'
   }
 })
@@ -184,7 +186,7 @@ function beginCapture() {
         setTimeout(() => emit('captured', props.item.id), 1300)
       })
       .catch((e: unknown) => {
-        const message = e instanceof Error ? e.message : 'Could not record capture'
+        const message = e instanceof Error ? e.message : t('play.captureFailed')
         emit('failed', message)
       })
   }, 900)
@@ -246,7 +248,9 @@ function beginCapture() {
           box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.4);
         "
       >
-        <span class="text-xs font-extrabold" style="color: var(--sh-muted)">FIND</span>
+        <span class="text-xs font-extrabold" style="color: var(--sh-muted)">{{
+          t('camera.find')
+        }}</span>
         <span class="text-2xl">{{ itemEmoji(item.label) }}</span>
         <span class="sh-title text-lg">{{ item.displayName }}</span>
       </div>
@@ -281,14 +285,18 @@ function beginCapture() {
               : 'background: rgba(0, 0, 0, 0.4); color: rgba(255, 246, 234, 0.9)'
           "
         >
-          {{ notFound ? `can't see the ${item.displayName.toLowerCase()} — try again` : `hold steady on the ${item.displayName.toLowerCase()}` }}
+          {{
+            notFound
+              ? t('camera.cantSee', { item: item.displayName.toLowerCase() })
+              : t('camera.holdSteady', { item: item.displayName.toLowerCase() })
+          }}
         </div>
         <div
           v-if="detectionTrouble"
           class="rounded-full px-3 py-1 text-xs font-bold"
           style="background: rgba(255, 107, 61, 0.9); color: #fff"
         >
-          ⚠ detection trouble — check the console, or try closing and reopening the camera
+          ⚠ {{ t('camera.detectionTrouble') }}
         </div>
       </div>
 
@@ -301,7 +309,7 @@ function beginCapture() {
             animation: sh-spin-slow 0.8s linear infinite;
           "
         ></div>
-        <div class="sh-title text-xl" style="color: #fff6ea">Scanning…</div>
+        <div class="sh-title text-xl" style="color: #fff6ea">{{ t('camera.scanning') }}</div>
         <span
           class="absolute right-6 left-6 h-1 rounded-full"
           style="
@@ -328,7 +336,7 @@ function beginCapture() {
         >
           ✓
         </div>
-        <div class="sh-title text-2xl" style="color: #fff6ea">Got it!</div>
+        <div class="sh-title text-2xl" style="color: #fff6ea">{{ t('camera.gotIt') }}</div>
         <div
           class="sh-title rounded-2xl border-[3px] px-4 py-1.5 text-xl"
           style="
@@ -338,13 +346,15 @@ function beginCapture() {
             box-shadow: 3px 4px 0 var(--sh-ink);
           "
         >
-          +{{ POINTS_PER_CAPTURE }} point
+          {{ t('camera.point', { n: POINTS_PER_CAPTURE }) }}
         </div>
       </div>
 
       <div v-else class="flex flex-col items-center gap-4 px-8 text-center">
         <div class="text-5xl">📵</div>
-        <div class="sh-title text-xl" style="color: #fff6ea">Camera unavailable</div>
+        <div class="sh-title text-xl" style="color: #fff6ea">
+          {{ t('camera.cameraUnavailable') }}
+        </div>
         <div class="text-sm font-bold" style="color: rgba(255, 246, 234, 0.75)">
           {{ cameraError }}
         </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, watch, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useGameStore } from '@/stores/game'
 import { listCategories, ApiError, type Category } from '@/lib/api'
 import { categoryEmoji } from '@/lib/categoryIcons'
@@ -9,6 +10,7 @@ import { avatarEmoji, avatarColor } from '@/lib/avatar'
 const props = defineProps<{ id: string }>()
 const router = useRouter()
 const store = useGameStore()
+const { t } = useI18n()
 
 const categories = ref<Category[]>([])
 const error = ref('')
@@ -47,7 +49,9 @@ const durationLabel = computed(() => {
     : (store.state.gameState?.game.durationSeconds ?? 300)
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
-  return secs === 0 ? `${mins} min` : `${mins} min ${secs}s`
+  return secs === 0
+    ? t('lobby.durationMinutes', { mins })
+    : t('lobby.durationMinutesSeconds', { mins, secs })
 })
 
 async function onDurationChange() {
@@ -55,7 +59,7 @@ async function onDurationChange() {
   try {
     await store.changeDuration(localDuration.value)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Could not change round length'
+    error.value = e instanceof ApiError ? e.message : t('lobby.errors.durationFailed')
   }
 }
 
@@ -71,7 +75,7 @@ async function pickCategory(categoryId: string) {
   try {
     await store.changeCategory(categoryId)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Could not change category'
+    error.value = e instanceof ApiError ? e.message : t('lobby.errors.categoryFailed')
   }
 }
 
@@ -80,7 +84,7 @@ async function onStart() {
   try {
     await store.start()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Could not start the game'
+    error.value = e instanceof ApiError ? e.message : t('lobby.errors.startFailed')
   }
 }
 </script>
@@ -89,7 +93,7 @@ async function onStart() {
   <main v-if="store.state.gameState" class="sh-app flex min-h-screen flex-col p-6">
     <div class="mb-4 text-center">
       <div class="text-xs font-extrabold tracking-wide" style="color: var(--sh-muted)">
-        SHARE THIS CODE
+        {{ t('lobby.shareCode') }}
       </div>
       <div data-testid="join-code" class="mt-2 inline-flex gap-1.5">
         <span
@@ -108,7 +112,7 @@ async function onStart() {
       </div>
     </div>
 
-    <div class="sh-title mb-2 text-base">Category</div>
+    <div class="sh-title mb-2 text-base">{{ t('lobby.category') }}</div>
     <div class="mb-4 flex flex-col gap-2">
       <button
         v-for="c in categories"
@@ -134,12 +138,12 @@ async function onStart() {
       </button>
     </div>
 
-    <div class="sh-title mb-2 text-base">Round length</div>
+    <div class="sh-title mb-2 text-base">{{ t('lobby.roundLength') }}</div>
     <div class="sh-card mb-4 flex flex-col gap-1.5 px-3.5 py-2.5">
       <div class="flex items-center justify-between text-sm font-extrabold">
         <span data-testid="duration-label">⏱ {{ durationLabel }}</span>
         <span v-if="!store.isHost" class="text-xs font-bold" style="color: var(--sh-muted)">
-          set by host
+          {{ t('lobby.setByHost') }}
         </span>
       </div>
       <input
@@ -157,7 +161,7 @@ async function onStart() {
     </div>
 
     <div class="sh-title mb-2 flex items-center gap-2 text-base">
-      Players
+      {{ t('lobby.players') }}
       <span
         class="rounded-full border-2 px-2 py-0.5 text-xs font-bold text-white"
         style="background: var(--sh-green); border-color: var(--sh-ink)"
@@ -187,7 +191,9 @@ async function onStart() {
               : 'background: #f0e2cf; color: var(--sh-muted)'
           "
         >
-          {{ p.id === store.me?.id ? 'YOU' : p.isHost ? 'HOST' : 'ready' }}
+          {{
+            p.id === store.me?.id ? t('lobby.you') : p.isHost ? t('lobby.host') : t('lobby.ready')
+          }}
         </span>
       </div>
     </div>
@@ -201,7 +207,7 @@ async function onStart() {
       style="animation: sh-bob 2.6s ease-in-out infinite"
       @click="onStart"
     >
-      🚀 Start the hunt!
+      🚀 {{ t('lobby.startButton') }}
     </button>
     <div
       v-else
@@ -209,7 +215,7 @@ async function onStart() {
       class="rounded-2xl border-[3px] border-dashed p-4 text-center text-lg font-bold"
       style="border-color: var(--sh-border-dashed); color: var(--sh-muted)"
     >
-      ⏳ Waiting for host to start…
+      ⏳ {{ t('lobby.waitingMessage') }}
     </div>
 
     <p
@@ -222,6 +228,6 @@ async function onStart() {
     </p>
   </main>
   <main v-else class="sh-app flex min-h-screen items-center justify-center">
-    <p class="font-bold" style="color: var(--sh-muted)">Loading…</p>
+    <p class="font-bold" style="color: var(--sh-muted)">{{ t('common.loading') }}</p>
   </main>
 </template>

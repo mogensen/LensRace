@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useGameStore } from '@/stores/game'
 import type { Player } from '@/lib/api'
 import { avatarEmoji, avatarColor } from '@/lib/avatar'
@@ -8,6 +9,7 @@ import { avatarEmoji, avatarColor } from '@/lib/avatar'
 const props = defineProps<{ id: string }>()
 const router = useRouter()
 const store = useGameStore()
+const { t } = useI18n()
 
 interface Confetti {
   left: number
@@ -62,11 +64,19 @@ const allFound = computed(
   () => ranking.value.some((p) => p.score === totalItems.value) && totalItems.value > 0,
 )
 const endTitle = computed(() =>
-  youWon.value ? '🏆 You won!' : allFound.value ? '🎉 All found!' : "⏰ Time's up!",
+  youWon.value
+    ? t('results.wonTitle')
+    : allFound.value
+      ? t('results.allFoundTitle')
+      : t('results.timesUpTitle'),
 )
 const endSub = computed(() => {
   const found = store.me?.capturedItemIds.length ?? 0
-  return `You found ${found} of ${totalItems.value} · ${store.me?.score ?? 0} points`
+  return t('results.summary', {
+    found,
+    total: totalItems.value,
+    score: store.me?.score ?? 0,
+  })
 })
 
 async function onPlayAgain() {
@@ -139,10 +149,10 @@ async function onPlayAgain() {
     </div>
 
     <button class="sh-btn sh-btn-primary z-[2] mt-3.5 py-4 text-xl" @click="onPlayAgain">
-      🔄 Play again
+      🔄 {{ t('results.playAgain') }}
     </button>
   </main>
   <main v-else class="sh-app flex min-h-screen items-center justify-center">
-    <p class="font-bold" style="color: var(--sh-muted)">Loading…</p>
+    <p class="font-bold" style="color: var(--sh-muted)">{{ t('common.loading') }}</p>
   </main>
 </template>

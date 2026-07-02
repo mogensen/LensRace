@@ -1,0 +1,70 @@
+const en = {
+  common: {
+    loading: 'Loading…',
+  },
+  home: {
+    tagline: 'Race to photograph everything!',
+    namePlaceholder: 'Your name',
+    createButton: 'Create a game',
+    creatingButton: 'Creating…',
+    or: 'OR',
+    joinCodePlaceholder: 'CODE',
+    joinButton: 'Join',
+    errors: {
+      serverUnreachable: 'Could not reach the server. Is the backend running?',
+      enterName: 'Enter your name first',
+      enterCode: 'Enter a game code',
+      createFailed: 'Could not create game',
+      joinFailed: 'Could not join game',
+    },
+  },
+  lobby: {
+    shareCode: 'SHARE THIS CODE',
+    category: 'Category',
+    roundLength: 'Round length',
+    setByHost: 'set by host',
+    durationMinutes: '{mins} min',
+    durationMinutesSeconds: '{mins} min {secs}s',
+    players: 'Players',
+    you: 'YOU',
+    host: 'HOST',
+    ready: 'ready',
+    startButton: 'Start the hunt!',
+    waitingMessage: 'Waiting for host to start…',
+    errors: {
+      durationFailed: 'Could not change round length',
+      categoryFailed: 'Could not change category',
+      startFailed: 'Could not start the game',
+    },
+  },
+  play: {
+    findThese: 'Find these {count}',
+    foundCount: '{found}/{total} found',
+    live: 'LIVE',
+    points: 'pts',
+    cameraAccessFailed: 'Could not access the camera',
+    captureFailed: 'Could not record capture',
+  },
+  camera: {
+    find: 'FIND',
+    cantSee: "can't see the {item} — try again",
+    holdSteady: 'hold steady on the {item}',
+    detectionTrouble:
+      'detection trouble — check the console, or try closing and reopening the camera',
+    scanning: 'Scanning…',
+    gotIt: 'Got it!',
+    point: '+{n} point',
+    cameraUnavailable: 'Camera unavailable',
+  },
+  results: {
+    wonTitle: '🏆 You won!',
+    allFoundTitle: '🎉 All found!',
+    timesUpTitle: "⏰ Time's up!",
+    summary: 'You found {found} of {total} · {score} points',
+    playAgain: 'Play again',
+  },
+}
+
+export type MessageSchema = typeof en
+
+export default en
