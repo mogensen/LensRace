@@ -63,6 +63,38 @@ const en = {
     summary: 'You found {found} of {total} · {score} points',
     playAgain: 'Play again',
   },
+  // Client-side translations for the server's (English-only) categories
+  // and items, keyed by their stable IDs. See lib/catalogNames.ts.
+  categories: {
+    'house-essentials': 'Around the House',
+    'city-scavenger': 'Out and About',
+  },
+  items: {
+    'house-chair': 'Chair',
+    'house-cup': 'Cup',
+    'house-book': 'Book',
+    'house-clock': 'Clock',
+    'house-laptop': 'Laptop',
+    'house-bottle': 'Bottle',
+    'house-keyboard': 'Keyboard',
+    'house-remote': 'Remote',
+    'house-vase': 'Vase',
+    'house-scissors': 'Scissors',
+    'house-teddy-bear': 'Teddy Bear',
+    'house-potted-plant': 'Potted Plant',
+    'city-car': 'Car',
+    'city-bicycle': 'Bicycle',
+    'city-traffic-light': 'Traffic Light',
+    'city-dog': 'Dog',
+    'city-backpack': 'Backpack',
+    'city-bench': 'Bench',
+    'city-bus': 'Bus',
+    'city-truck': 'Truck',
+    'city-motorcycle': 'Motorcycle',
+    'city-stop-sign': 'Stop Sign',
+    'city-fire-hydrant': 'Fire Hydrant',
+    'city-umbrella': 'Umbrella',
+  },
 }
 
 export type MessageSchema = typeof en

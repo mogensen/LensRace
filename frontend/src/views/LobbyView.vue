@@ -5,12 +5,13 @@ import { useI18n } from 'vue-i18n'
 import { useGameStore } from '@/stores/game'
 import { listCategories, ApiError, type Category } from '@/lib/api'
 import { categoryEmoji } from '@/lib/categoryIcons'
+import { categoryName } from '@/lib/catalogNames'
 import { avatarEmoji, avatarColor } from '@/lib/avatar'
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()
 const store = useGameStore()
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 const categories = ref<Category[]>([])
 const error = ref('')
@@ -124,7 +125,7 @@ async function onStart() {
         @click="pickCategory(c.id)"
       >
         <span class="text-2xl">{{ categoryEmoji(c.id) }}</span>
-        <span class="sh-title flex-1 text-left text-base">{{ c.name }}</span>
+        <span class="sh-title flex-1 text-left text-base">{{ categoryName(t, te, c.id, c.name) }}</span>
         <span
           class="flex h-6 w-6 items-center justify-center rounded-full border-2 text-xs font-extrabold"
           :style="
