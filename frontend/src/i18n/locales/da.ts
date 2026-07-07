@@ -49,8 +49,8 @@ export default {
   },
   camera: {
     find: 'FIND',
-    cantSee: 'kan ikke se {item} — prøv igen',
-    holdSteady: 'hold kameraet stille på {item}',
+    cantSee: 'kan ikke se {item} — kom tættere på og prøv igen',
+    holdSteady: 'kom tæt på — fyld rammen med {item}',
     detectionTrouble:
       'registreringsproblemer — tjek konsollen, eller prøv at lukke og genåbne kameraet',
     scanning: 'Scanner…',

@@ -87,6 +87,15 @@ body {
     opacity: 0;
   }
 }
+@keyframes sh-frame-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
 @keyframes sh-bob {
   0%,
   100% {

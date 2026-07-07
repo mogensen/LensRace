@@ -235,6 +235,24 @@ function beginCapture() {
       style="border-color: #fff6ea"
     ></span>
 
+    <!-- The item needs to fill nearly this whole frame for the on-device
+         model to recognize it — a small centered reticle previously implied
+         a tiny, distant object was enough, so this spans the same area as
+         the corner brackets above to make "get close, fill the frame" the
+         obvious reading. -->
+    <div
+      v-if="stage === 'aim'"
+      class="pointer-events-none absolute rounded-[28px] border-[3px] border-dashed"
+      style="
+        top: 84px;
+        right: 24px;
+        bottom: 188px;
+        left: 24px;
+        border-color: rgba(255, 246, 234, 0.75);
+        animation: sh-frame-pulse 1.8s ease-in-out infinite;
+      "
+    ></div>
+
     <div class="relative z-[2] flex items-center gap-2.5 px-5 pt-4">
       <button
         class="flex h-10 w-10 flex-none items-center justify-center rounded-full text-lg font-extrabold text-white"
@@ -267,19 +285,6 @@ function beginCapture() {
 
     <div class="relative z-[2] flex flex-1 items-center justify-center">
       <div v-if="stage === 'aim'" class="flex flex-col items-center gap-3.5">
-        <div class="relative">
-          <span
-            class="absolute -inset-[18px] rounded-full border-[3px]"
-            style="
-              border-color: rgba(255, 246, 234, 0.6);
-              animation: sh-pulse-ring 1.8s ease-out infinite;
-            "
-          ></span>
-          <span
-            class="block h-[70px] w-[70px] rounded-[18px] border-[3px] border-dashed"
-            style="border-color: rgba(255, 246, 234, 0.85)"
-          ></span>
-        </div>
         <div
           class="rounded-full px-3 py-1 text-sm font-bold"
           :style="
