@@ -6,7 +6,7 @@
 // one synonym as valid, so this set does too. Regenerate by re-running the
 // extraction script recorded in the PR that introduced this file if the
 // mobilenet package version changes.
-package db
+package catalog
 
 var imagenetTokens = map[string]bool{
 	"abacus": true,

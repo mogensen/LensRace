@@ -10,11 +10,13 @@ import (
 	"fmt"
 	"math/big"
 	mathrand "math/rand/v2"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/mogensen/lensrace/internal/catalog"
 	"github.com/mogensen/lensrace/internal/models"
 )
 
@@ -49,14 +51,18 @@ const (
 	joinCodeLength   = 6
 )
 
-// Store provides game-lifecycle operations backed by SQLite.
+// Store provides game-lifecycle operations backed by SQLite for dynamic
+// state (games/players/captures) and an embedded catalog for static
+// content (categories/items — see internal/catalog).
 type Store struct {
-	db *sql.DB
+	db  *sql.DB
+	cat *catalog.Catalog
 }
 
-// New builds a Store over an already-migrated database connection.
-func New(conn *sql.DB) *Store {
-	return &Store{db: conn}
+// New builds a Store over an already-migrated database connection and a
+// loaded catalog.
+func New(conn *sql.DB, cat *catalog.Catalog) *Store {
+	return &Store{db: conn, cat: cat}
 }
 
 // queryer is satisfied by both *sql.DB and *sql.Tx so helpers can run
@@ -74,11 +80,7 @@ func now() string {
 // CreateGame creates a new game in the 'waiting' state along with its host
 // player, and returns the resulting state plus the host's player ID.
 func (s *Store) CreateGame(ctx context.Context, categoryID, hostName string, durationSeconds int) (*models.GameState, string, error) {
-	var exists int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM categories WHERE id = ?`, categoryID).Scan(&exists); err != nil {
-		return nil, "", fmt.Errorf("check category: %w", err)
-	}
-	if exists == 0 {
+	if !s.cat.CategoryExists(categoryID) {
 		return nil, "", ErrCategoryNotFound
 	}
 
@@ -115,7 +117,7 @@ func (s *Store) CreateGame(ctx context.Context, categoryID, hostName string, dur
 		return nil, "", fmt.Errorf("set host: %w", err)
 	}
 
-	if err := selectGameItems(ctx, tx, gameID, categoryID); err != nil {
+	if err := selectGameItems(ctx, tx, gameID, categoryID, s.cat); err != nil {
 		return nil, "", err
 	}
 
@@ -248,11 +250,7 @@ func (s *Store) SetCategory(ctx context.Context, idOrCode, playerID, categoryID 
 		return nil, ErrGameNotWaiting
 	}
 
-	var exists int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM categories WHERE id = ?`, categoryID).Scan(&exists); err != nil {
-		return nil, fmt.Errorf("check category: %w", err)
-	}
-	if exists == 0 {
+	if !s.cat.CategoryExists(categoryID) {
 		return nil, ErrCategoryNotFound
 	}
 
@@ -263,7 +261,7 @@ func (s *Store) SetCategory(ctx context.Context, idOrCode, playerID, categoryID 
 	if _, err := tx.ExecContext(ctx, `DELETE FROM game_items WHERE game_id = ?`, id); err != nil {
 		return nil, fmt.Errorf("clear game items: %w", err)
 	}
-	if err := selectGameItems(ctx, tx, id, categoryID); err != nil {
+	if err := selectGameItems(ctx, tx, id, categoryID, s.cat); err != nil {
 		return nil, err
 	}
 
@@ -422,7 +420,7 @@ func (s *Store) getGameStateByID(ctx context.Context, id string) (*models.GameSt
 	if err := expireIfNeeded(ctx, s.db, game); err != nil {
 		return nil, err
 	}
-	items, err := loadItemsForGame(ctx, s.db, game.ID)
+	items, err := loadItemsForGame(ctx, s.db, game.ID, s.cat)
 	if err != nil {
 		return nil, err
 	}
@@ -537,27 +535,10 @@ func expireIfNeeded(ctx context.Context, q queryer, g *models.Game) error {
 }
 
 // selectGameItems draws up to TasksPerGame random items from categoryID's
-// item pool and records them as gameID's tasks for this round. If the pool
-// has fewer items than TasksPerGame, every item in it is used.
-func selectGameItems(ctx context.Context, tx *sql.Tx, gameID, categoryID string) error {
-	rows, err := tx.QueryContext(ctx, `SELECT id FROM items WHERE category_id = ?`, categoryID)
-	if err != nil {
-		return fmt.Errorf("load item pool: %w", err)
-	}
-	var ids []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return fmt.Errorf("scan item id: %w", err)
-		}
-		ids = append(ids, id)
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	rows.Close()
-
+// item pool (in cat) and records them as gameID's tasks for this round. If
+// the pool has fewer items than TasksPerGame, every item in it is used.
+func selectGameItems(ctx context.Context, tx *sql.Tx, gameID, categoryID string, cat *catalog.Catalog) error {
+	ids := cat.ItemIDsInCategory(categoryID)
 	mathrand.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
 	if len(ids) > TasksPerGame {
 		ids = ids[:TasksPerGame]
@@ -573,28 +554,36 @@ func selectGameItems(ctx context.Context, tx *sql.Tx, gameID, categoryID string)
 	return nil
 }
 
-func loadItemsForGame(ctx context.Context, q queryer, gameID string) ([]models.Item, error) {
-	rows, err := q.QueryContext(ctx, `
-		SELECT i.id, i.category_id, i.label, i.display_name
-		FROM items i
-		JOIN game_items gi ON gi.item_id = i.id
-		WHERE gi.game_id = ?
-		ORDER BY i.display_name
-	`, gameID)
+func loadItemsForGame(ctx context.Context, q queryer, gameID string, cat *catalog.Catalog) ([]models.Item, error) {
+	rows, err := q.QueryContext(ctx, `SELECT item_id FROM game_items WHERE game_id = ?`, gameID)
 	if err != nil {
-		return nil, fmt.Errorf("load items: %w", err)
+		return nil, fmt.Errorf("load game items: %w", err)
 	}
 	defer rows.Close()
 
 	items := []models.Item{}
 	for rows.Next() {
-		var it models.Item
-		if err := rows.Scan(&it.ID, &it.CategoryID, &it.Label, &it.DisplayName); err != nil {
-			return nil, fmt.Errorf("scan item: %w", err)
+		var itemID string
+		if err := rows.Scan(&itemID); err != nil {
+			return nil, fmt.Errorf("scan game item: %w", err)
 		}
-		items = append(items, it)
+		item, categoryID, ok := cat.Item(itemID)
+		if !ok {
+			return nil, fmt.Errorf("game item %s: not found in catalog", itemID)
+		}
+		items = append(items, models.Item{
+			ID:          item.ID,
+			CategoryID:  categoryID,
+			Label:       item.Label,
+			DisplayName: item.DisplayName,
+		})
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	sort.Slice(items, func(i, j int) bool { return items[i].DisplayName < items[j].DisplayName })
+	return items, nil
 }
 
 func loadPlayers(ctx context.Context, q queryer, gameID string) ([]models.Player, error) {

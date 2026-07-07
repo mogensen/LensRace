@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mogensen/lensrace/internal/catalog"
 	"github.com/mogensen/lensrace/internal/db"
 	"github.com/mogensen/lensrace/internal/store"
 )
@@ -22,7 +23,13 @@ func newTestStore(t *testing.T) (*store.Store, *sql.DB) {
 	if err := db.Migrate(conn); err != nil {
 		t.Fatalf("db.Migrate: %v", err)
 	}
-	return store.New(conn), conn
+
+	cat, err := catalog.Load()
+	if err != nil {
+		t.Fatalf("catalog.Load: %v", err)
+	}
+
+	return store.New(conn, cat), conn
 }
 
 func TestCheckExpirationsFinishesElapsedGames(t *testing.T) {
