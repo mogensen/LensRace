@@ -91,8 +91,8 @@ func TestItemLookupReturnsOwningCategory(t *testing.T) {
 func TestItemIDsInCategoryMatchesItemCount(t *testing.T) {
 	cat := mustLoad(t)
 	ids := cat.ItemIDsInCategory("house-essentials")
-	if len(ids) != 12 {
-		t.Errorf("len(ids) = %d, want 12", len(ids))
+	if len(ids) != 24 {
+		t.Errorf("len(ids) = %d, want 24", len(ids))
 	}
 }
 
