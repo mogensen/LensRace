@@ -44,15 +44,33 @@ declare global {
   }
 }
 
+// Keyed by src so concurrent callers (see preloadDetectors, which kicks off
+// coco-ssd and mobilenet together — both depend on tf.min.js) await the same
+// in-flight load instead of racing: appendChild below adds the <script> tag
+// to the DOM synchronously, so a naive "does this tag already exist" check
+// would let a second caller resolve immediately, before tf.min.js has
+// actually finished loading and defined the global it needs.
+const scriptLoads = new Map<string, Promise<void>>()
+
 function loadScript(src: string): Promise<void> {
-  if (document.querySelector(`script[src="${src}"]`)) return Promise.resolve()
-  return new Promise((resolve, reject) => {
+  const inFlight = scriptLoads.get(src)
+  if (inFlight) return inFlight
+
+  const promise = new Promise<void>((resolve, reject) => {
     const script = document.createElement('script')
     script.src = src
     script.onload = () => resolve()
     script.onerror = () => reject(new Error(`Failed to load ${src}`))
     document.head.appendChild(script)
+  }).catch((err: unknown) => {
+    // Don't cache a permanently-failed load — see loadCocoSsd/loadMobilenet's
+    // matching comment.
+    scriptLoads.delete(src)
+    throw err
   })
+
+  scriptLoads.set(src, promise)
+  return promise
 }
 
 // The fixed, closed set of 80 object classes TensorFlow.js COCO-SSD can
