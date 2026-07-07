@@ -7,6 +7,7 @@ import { listCategories, ApiError, type Category } from '@/lib/api'
 import { categoryEmoji } from '@/lib/categoryIcons'
 import { categoryName } from '@/lib/catalogNames'
 import { avatarEmoji, avatarColor } from '@/lib/avatar'
+import { preloadDetectors } from '@/lib/detector'
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()
@@ -25,6 +26,12 @@ const DURATION_STEP = 30
 const localDuration = ref(300)
 
 onMounted(async () => {
+  // Both on-device models start downloading now, well before the round
+  // starts (see preloadDetectors: unconditional, not just whichever model
+  // this round's items happen to need, since a player might lose their
+  // connection between now and when they actually open the camera).
+  preloadDetectors()
+
   const ok = await store.ensureSession(props.id)
   if (!ok) {
     await router.replace({ name: 'home' })

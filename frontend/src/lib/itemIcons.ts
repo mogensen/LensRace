@@ -1,5 +1,6 @@
-// Cosmetic emoji per item, keyed by the item's COCO-SSD label. A generic
-// fallback covers any label added later without a matching entry here.
+// Cosmetic emoji per item, keyed by the item's label from whichever
+// detector recognizes it (COCO-SSD or MobileNet — see lib/detector.ts). A
+// generic fallback covers any label added later without a matching entry.
 const ICONS: Record<string, string> = {
   chair: '🪑',
   cup: '🥤',
@@ -61,6 +62,16 @@ const ICONS: Record<string, string> = {
   tv: '📺',
   toothbrush: '🪥',
   handbag: '👜',
+  'mountain tent': '⛺',
+  'sleeping bag': '🛌',
+  'cowboy boot': '🥾',
+  hatchet: '🪓',
+  canoe: '🛶',
+  'magnetic compass': '🧭',
+  torch: '🔦',
+  daisy: '🌼',
+  mushroom: '🍄',
+  acorn: '🌰',
 }
 
 export function itemEmoji(label: string): string {

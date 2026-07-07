@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useGameStore } from '@/stores/game'
 import { ApiError, listCategories, type Category } from '@/lib/api'
+import { preloadDetectors } from '@/lib/detector'
 
 const router = useRouter()
 const store = useGameStore()
@@ -16,6 +17,13 @@ const error = ref('')
 const categories = ref<Category[]>([])
 
 onMounted(async () => {
+  // Earliest possible point to start downloading both on-device models —
+  // players are heading somewhere they may have poor or no connectivity
+  // once they're actually playing, so every extra second of a head start
+  // here (while there's still a decent chance of a good connection)
+  // matters. See preloadDetectors's doc comment.
+  preloadDetectors()
+
   try {
     categories.value = await listCategories()
   } catch {

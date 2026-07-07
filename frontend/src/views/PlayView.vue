@@ -7,6 +7,7 @@ import type { Item } from '@/lib/api'
 import { itemEmoji } from '@/lib/itemIcons'
 import { itemName } from '@/lib/catalogNames'
 import { avatarEmoji, avatarColor } from '@/lib/avatar'
+import { preloadDetectors } from '@/lib/detector'
 
 // Lazy-loaded: this pulls in TensorFlow.js + COCO-SSD, which is hundreds of
 // KB and shouldn't block loading the rest of the Play view for players who
@@ -24,6 +25,13 @@ const now = ref(Date.now())
 let tickId: ReturnType<typeof setInterval> | undefined
 
 onMounted(async () => {
+  // Redundant with the Home/Lobby calls in the normal flow (loading is
+  // cached, so this is a no-op once they've already started) — but a
+  // player who refreshes mid-round lands here without ever having passed
+  // through either of those, so this is the last safety net before
+  // CameraOverlay's own on-demand load.
+  preloadDetectors()
+
   const ok = await store.ensureSession(props.id)
   if (!ok) {
     await router.replace({ name: 'home' })

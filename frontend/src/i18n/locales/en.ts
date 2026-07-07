@@ -155,6 +155,16 @@ const en = {
     'camp-knife': 'Knife',
     'camp-backpack': 'Backpack',
     'camp-bench': 'Bench',
+    'camp-tent': 'Tent',
+    'camp-sleeping-bag': 'Sleeping Bag',
+    'camp-boot': 'Boot',
+    'camp-hatchet': 'Hatchet',
+    'camp-canoe': 'Canoe',
+    'camp-compass': 'Compass',
+    'camp-torch': 'Torch',
+    'forest-daisy': 'Daisy',
+    'forest-mushroom': 'Mushroom',
+    'forest-acorn': 'Acorn',
   },
 }
 
