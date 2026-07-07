@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useGameStore } from '@/stores/game'
 import { listCategories, ApiError, type Category } from '@/lib/api'
-import { categoryEmoji } from '@/lib/categoryIcons'
 import { categoryName } from '@/lib/catalogNames'
 import { avatarEmoji, avatarColor } from '@/lib/avatar'
 import { preloadDetectors } from '@/lib/detector'
@@ -131,7 +130,7 @@ async function onStart() {
         :style="c.id === store.state.gameState.game.categoryId ? 'background: #fff1d9' : undefined"
         @click="pickCategory(c.id)"
       >
-        <span class="text-2xl">{{ categoryEmoji(c.id) }}</span>
+        <span class="text-2xl">{{ c.icon }}</span>
         <span class="sh-title flex-1 text-left text-base">{{ categoryName(t, te, c.id, c.name) }}</span>
         <span
           class="flex h-6 w-6 items-center justify-center rounded-full border-2 text-xs font-extrabold"

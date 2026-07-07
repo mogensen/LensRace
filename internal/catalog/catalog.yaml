@@ -17,6 +17,7 @@ categories:
   - id: 'house-essentials'
     name: 'Around the House'
     description: 'Find everyday objects around your home.'
+    icon: '🏠'
     items:
       - id: 'house-chair'
         label: 'chair'
@@ -93,6 +94,7 @@ categories:
   - id: 'city-scavenger'
     name: 'Out and About'
     description: 'Find objects out in the city or neighborhood.'
+    icon: '🌆'
     items:
       - id: 'city-car'
         label: 'car'
@@ -166,6 +168,7 @@ categories:
   - id: 'forest'
     name: 'Forest'
     description: 'Find wildlife, plants, and trail gear out in the woods.'
+    icon: '🌲'
     items:
       - id: 'forest-bird'
         label: 'bird'
@@ -281,6 +284,7 @@ categories:
   - id: 'camp-life'
     name: 'Camp Life'
     description: 'Everything you''ll spot around a campsite.'
+    icon: '⛺'
     items:
       - id: 'camp-boat'
         label: 'boat'
