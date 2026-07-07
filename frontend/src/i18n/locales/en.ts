@@ -47,8 +47,8 @@ const en = {
   },
   camera: {
     find: 'FIND',
-    cantSee: "can't see the {item} — try again",
-    holdSteady: 'hold steady on the {item}',
+    cantSee: "can't see the {item} — move closer and try again",
+    holdSteady: 'get close — fill the frame with the {item}',
     detectionTrouble:
       'detection trouble — check the console, or try closing and reopening the camera',
     scanning: 'Scanning…',
