@@ -81,10 +81,10 @@ func TestMigrateSeedsCategoriesAndItems(t *testing.T) {
 }
 
 // cocoSsdClasses is the fixed, closed set of object classes the frontend's
-// on-device detector (TensorFlow.js COCO-SSD) can ever recognize — see
-// coco-ssd's classes.ts. An item's label that isn't in this list can never
-// be auto-captured, no matter what the player points the camera at, so
-// every seeded item must use one of these exact strings.
+// primary on-device detector (TensorFlow.js COCO-SSD) can ever recognize —
+// see coco-ssd's classes.ts. Every seeded item's label must be in this set
+// or in imagenetTokens (the secondary MobileNet model's vocabulary,
+// generated in imagenet_classes_test.go), or it can never be auto-captured.
 var cocoSsdClasses = map[string]bool{
 	"person": true, "bicycle": true, "car": true, "motorcycle": true, "airplane": true,
 	"bus": true, "train": true, "truck": true, "boat": true, "traffic light": true,
@@ -104,7 +104,15 @@ var cocoSsdClasses = map[string]bool{
 	"vase": true, "scissors": true, "teddy bear": true, "hair drier": true, "toothbrush": true,
 }
 
-func TestSeededItemLabelsAreDetectableByCocoSsd(t *testing.T) {
+// isDetectableLabel reports whether label is something at least one of the
+// frontend's two on-device models (COCO-SSD or MobileNet) can recognize —
+// see frontend/src/lib/detector.ts, which picks between them per-item using
+// the exact same two sets.
+func isDetectableLabel(label string) bool {
+	return cocoSsdClasses[label] || imagenetTokens[label]
+}
+
+func TestSeededItemLabelsAreDetectableByAModel(t *testing.T) {
 	conn := openTestDB(t)
 
 	rows, err := conn.Query(`SELECT id, label FROM items`)
@@ -119,7 +127,7 @@ func TestSeededItemLabelsAreDetectableByCocoSsd(t *testing.T) {
 		if err := rows.Scan(&id, &label); err != nil {
 			t.Fatalf("scan item: %v", err)
 		}
-		if !cocoSsdClasses[label] {
+		if !isDetectableLabel(label) {
 			undetectable = append(undetectable, id+" (label="+label+")")
 		}
 	}
@@ -127,7 +135,7 @@ func TestSeededItemLabelsAreDetectableByCocoSsd(t *testing.T) {
 		t.Fatalf("iterate items: %v", err)
 	}
 	if len(undetectable) > 0 {
-		t.Fatalf("items with a label the on-device detector can never match: %v", undetectable)
+		t.Fatalf("items with a label neither on-device model can ever match: %v", undetectable)
 	}
 }
 

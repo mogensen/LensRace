@@ -1,6 +1,6 @@
-// Copies the TensorFlow.js / COCO-SSD UMD (browser global) builds into
-// public/vendor/, where they're served as static assets and loaded via a
-// plain <script> tag instead of an ES import.
+// Copies the TensorFlow.js / COCO-SSD / MobileNet UMD (browser global)
+// builds into public/vendor/, where they're served as static assets and
+// loaded via a plain <script> tag instead of an ES import.
 //
 // Why: tfjs-converter defines a class method literally named `import`
 // (`async import(keys, values) {}`), which trips up Vite's lightweight
@@ -19,6 +19,7 @@ mkdirSync(vendorDir, { recursive: true })
 const files = [
   ['node_modules/@tensorflow/tfjs/dist/tf.min.js', 'tf.min.js'],
   ['node_modules/@tensorflow-models/coco-ssd/dist/coco-ssd.min.js', 'coco-ssd.min.js'],
+  ['node_modules/@tensorflow-models/mobilenet/dist/mobilenet.min.js', 'mobilenet.min.js'],
 ]
 
 for (const [src, dest] of files) {

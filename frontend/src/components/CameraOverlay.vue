@@ -5,7 +5,7 @@ import { useGameStore } from '@/stores/game'
 import type { Item } from '@/lib/api'
 import { itemEmoji } from '@/lib/itemIcons'
 import { itemName } from '@/lib/catalogNames'
-import { detectObjects } from '@/lib/detector'
+import { detectObjects, classMatchesLabel, pickDetector } from '@/lib/detector'
 
 const props = defineProps<{
   item: Item
@@ -79,20 +79,24 @@ onUnmounted(() => {
 // score threshold.
 function matchesItem(detections: Awaited<ReturnType<typeof detectObjects>>): boolean {
   return detections.some(
-    (d) => d.class.toLowerCase() === props.item.label.toLowerCase() && d.score >= MIN_SCORE,
+    (d) => classMatchesLabel(d.class, props.item.label) && d.score >= MIN_SCORE,
   )
 }
 
 // Logs the model's raw output every tick — what it actually saw, not just
 // whether it happened to match — so a "why won't this detect" report can
 // be diagnosed from the browser console instead of guessing (e.g. seeing
-// the right class at 0.52 confidence explains a miss against MIN_SCORE=0.6
-// far better than silence does).
+// the right class at 0.32 confidence explains a miss against MIN_SCORE=0.4
+// far better than silence does). Also logs which of the two on-device
+// models (COCO-SSD or MobileNet) is running for this item, since which one
+// gets used is picked automatically per label.
 function logDetections(detections: Awaited<ReturnType<typeof detectObjects>>): void {
   const seen = detections.length
     ? detections.map((d) => `${d.class} (${Math.round(d.score * 100)}%)`).join(', ')
     : '(nothing)'
-  console.log(`[detector] looking for "${props.item.label}" — model saw: ${seen}`)
+  console.log(
+    `[detector:${pickDetector(props.item.label)}] looking for "${props.item.label}" — model saw: ${seen}`,
+  )
 }
 
 // A self-scheduling setTimeout, not setInterval: COCO-SSD inference can
@@ -105,7 +109,7 @@ function startDetectionLoop() {
   async function tick() {
     if (detectionCancelled || stage.value !== 'aim' || !videoEl.value) return
     try {
-      const detections = await detectObjects(videoEl.value)
+      const detections = await detectObjects(videoEl.value, props.item.label)
       logDetections(detections)
       consecutiveErrors = 0
       detectionTrouble.value = false
