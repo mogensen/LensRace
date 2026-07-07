@@ -4,7 +4,12 @@
 
 FROM node:22-alpine AS frontend
 WORKDIR /app/frontend
-RUN npm install -g pnpm@8
+# Must stay a major version whose lockfile format matches pnpm-lock.yaml's
+# `lockfileVersion` (currently '9.0', written by pnpm 9/10) — pnpm 8 reads
+# an older format and fails `--frozen-lockfile` with
+# ERR_PNPM_LOCKFILE_BREAKING_CHANGE the moment the lockfile is regenerated
+# by a newer pnpm, as happened when a dependency was added with pnpm 10.
+RUN npm install -g pnpm@10
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
 COPY frontend/scripts/ ./scripts/
 RUN pnpm install --frozen-lockfile
