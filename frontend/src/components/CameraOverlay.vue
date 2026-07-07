@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useGameStore } from '@/stores/game'
 import type { Item } from '@/lib/api'
 import { itemEmoji } from '@/lib/itemIcons'
+import { itemName } from '@/lib/catalogNames'
 import { detectObjects } from '@/lib/detector'
 
 const props = defineProps<{
@@ -18,7 +19,9 @@ const emit = defineEmits<{
 }>()
 
 const store = useGameStore()
-const { t } = useI18n()
+const { t, te } = useI18n()
+
+const localizedItemName = computed(() => itemName(t, te, props.item.id, props.item.displayName))
 
 type Stage = 'aim' | 'scan' | 'done' | 'error'
 const stage = ref<Stage>('aim')
@@ -252,7 +255,7 @@ function beginCapture() {
           t('camera.find')
         }}</span>
         <span class="text-2xl">{{ itemEmoji(item.label) }}</span>
-        <span class="sh-title text-lg">{{ item.displayName }}</span>
+        <span class="sh-title text-lg">{{ localizedItemName }}</span>
       </div>
       <div
         class="rounded-2xl border-2 px-2.5 py-1.5 font-mono text-sm font-extrabold text-white"
@@ -287,8 +290,8 @@ function beginCapture() {
         >
           {{
             notFound
-              ? t('camera.cantSee', { item: item.displayName.toLowerCase() })
-              : t('camera.holdSteady', { item: item.displayName.toLowerCase() })
+              ? t('camera.cantSee', { item: localizedItemName.toLowerCase() })
+              : t('camera.holdSteady', { item: localizedItemName.toLowerCase() })
           }}
         </div>
         <div

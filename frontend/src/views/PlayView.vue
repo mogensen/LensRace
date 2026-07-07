@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useGameStore } from '@/stores/game'
 import type { Item } from '@/lib/api'
 import { itemEmoji } from '@/lib/itemIcons'
+import { itemName } from '@/lib/catalogNames'
 import { avatarEmoji, avatarColor } from '@/lib/avatar'
 
 // Lazy-loaded: this pulls in TensorFlow.js + COCO-SSD, which is hundreds of
@@ -15,7 +16,7 @@ const CameraOverlay = defineAsyncComponent(() => import('@/components/CameraOver
 const props = defineProps<{ id: string }>()
 const router = useRouter()
 const store = useGameStore()
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 const activeItem = ref<Item | null>(null)
 const error = ref('')
@@ -204,7 +205,7 @@ function onCaptureFailed(message: string) {
               : 'color: var(--sh-ink)'
           "
         >
-          {{ it.displayName }}
+          {{ itemName(t, te, it.id, it.displayName) }}
         </span>
         <span
           v-if="isFound(it.id)"
