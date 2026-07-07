@@ -5,6 +5,7 @@ export interface Category {
   id: string
   name: string
   description: string
+  icon: string
 }
 
 export interface Game {

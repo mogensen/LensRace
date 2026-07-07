@@ -29,6 +29,7 @@ type Category struct {
 	ID          string `yaml:"id"`
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
+	Icon        string `yaml:"icon"`
 	Items       []Item `yaml:"items"`
 }
 
@@ -72,8 +73,8 @@ func Load() (*Catalog, error) {
 
 	for i := range cat.categories {
 		c := &cat.categories[i]
-		if c.ID == "" || c.Name == "" {
-			return nil, fmt.Errorf("category %d: id and name are required", i)
+		if c.ID == "" || c.Name == "" || c.Icon == "" {
+			return nil, fmt.Errorf("category %d: id, name, and icon are required", i)
 		}
 		if _, dup := cat.categoryByID[c.ID]; dup {
 			return nil, fmt.Errorf("duplicate category id %q", c.ID)
