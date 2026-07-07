@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	frontenddist "github.com/mogensen/lensrace/frontend"
+	"github.com/mogensen/lensrace/internal/catalog"
 	"github.com/mogensen/lensrace/internal/handlers"
 	"github.com/mogensen/lensrace/internal/realtime"
 	"github.com/mogensen/lensrace/internal/store"
@@ -22,7 +23,7 @@ import (
 // New builds a Fiber app with middleware and API routes registered. hub
 // caches live game state and fans out updates to SSE subscribers; the
 // caller is responsible for keeping it fed (see realtime.WatchExpirations).
-func New(conn *sql.DB, hub *realtime.Hub) *fiber.App {
+func New(conn *sql.DB, hub *realtime.Hub, cat *catalog.Catalog) *fiber.App {
 	app := fiber.New(fiber.Config{
 		// The default error handler returns plain text; the frontend needs
 		// JSON error bodies to show user-facing messages.
@@ -40,8 +41,8 @@ func New(conn *sql.DB, hub *realtime.Hub) *fiber.App {
 	app.Use(logger.New())
 	app.Use(cors.New())
 
-	categories := &handlers.CategoryHandler{DB: conn}
-	games := &handlers.GameHandler{Store: store.New(conn), Hub: hub}
+	categories := &handlers.CategoryHandler{Catalog: cat}
+	games := &handlers.GameHandler{Store: store.New(conn, cat), Hub: hub}
 
 	api := app.Group("/api")
 	api.Get("/health", handlers.Health)

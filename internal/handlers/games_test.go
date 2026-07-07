@@ -83,7 +83,7 @@ func postJSON(t *testing.T, baseURL, path string, body any, out any) int {
 }
 
 func TestCreateGameEndpoint(t *testing.T) {
-	app := server.New(newTestApp(t), realtime.New())
+	app := server.New(newTestApp(t), realtime.New(), newTestCatalog(t))
 
 	var created sessionBody
 	rec := doJSON(t, app, "POST", "/api/games", map[string]any{
@@ -106,7 +106,7 @@ func TestCreateGameEndpoint(t *testing.T) {
 }
 
 func TestCreateGameEndpointValidation(t *testing.T) {
-	app := server.New(newTestApp(t), realtime.New())
+	app := server.New(newTestApp(t), realtime.New(), newTestCatalog(t))
 
 	rec := doJSON(t, app, "POST", "/api/games", map[string]any{
 		"categoryId": "",
@@ -118,7 +118,7 @@ func TestCreateGameEndpointValidation(t *testing.T) {
 }
 
 func TestFullGameLifecycleEndpoints(t *testing.T) {
-	app := server.New(newTestApp(t), realtime.New())
+	app := server.New(newTestApp(t), realtime.New(), newTestCatalog(t))
 
 	var created sessionBody
 	doJSON(t, app, "POST", "/api/games", map[string]any{
@@ -215,7 +215,7 @@ func TestFullGameLifecycleEndpoints(t *testing.T) {
 }
 
 func TestSetCategoryEndpoint(t *testing.T) {
-	app := server.New(newTestApp(t), realtime.New())
+	app := server.New(newTestApp(t), realtime.New(), newTestCatalog(t))
 
 	var created sessionBody
 	doJSON(t, app, "POST", "/api/games", map[string]any{
@@ -252,7 +252,7 @@ func TestSetCategoryEndpoint(t *testing.T) {
 }
 
 func TestSetDurationEndpoint(t *testing.T) {
-	app := server.New(newTestApp(t), realtime.New())
+	app := server.New(newTestApp(t), realtime.New(), newTestCatalog(t))
 
 	var created sessionBody
 	doJSON(t, app, "POST", "/api/games", map[string]any{
@@ -292,7 +292,7 @@ func TestSetDurationEndpoint(t *testing.T) {
 }
 
 func TestGetGameNotFound(t *testing.T) {
-	app := server.New(newTestApp(t), realtime.New())
+	app := server.New(newTestApp(t), realtime.New(), newTestCatalog(t))
 
 	rec := doJSON(t, app, "GET", "/api/games/does-not-exist", nil, nil)
 	if rec != fiber.StatusNotFound {
@@ -301,7 +301,7 @@ func TestGetGameNotFound(t *testing.T) {
 }
 
 func TestEventsEndpointStreamsStateChanges(t *testing.T) {
-	app := server.New(newTestApp(t), realtime.New())
+	app := server.New(newTestApp(t), realtime.New(), newTestCatalog(t))
 
 	// app.Test() can't exercise a long-lived SSE stream: it feeds the
 	// request through an in-memory testConn and blocks until

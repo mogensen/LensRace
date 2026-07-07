@@ -72,12 +72,13 @@ Vite serves the frontend on its own port instead.
 
 ```
 LensRace/
-├── main.go                    # entrypoint: config -> db -> migrate -> serve
+├── main.go                    # entrypoint: config -> db -> migrate -> load catalog -> serve
 ├── internal/
+│   ├── catalog/                # static categories/items, embedded from catalog.yaml
 │   ├── config/                # env-based configuration
 │   ├── db/
 │   │   ├── db.go               # SQLite connection + migration runner
-│   │   └── migrations/         # embedded SQL schema + seed data
+│   │   └── migrations/         # embedded SQL schema (dynamic state only — see internal/catalog for content)
 │   ├── handlers/               # HTTP handlers
 │   └── server/                 # Fiber app + route registration
 ├── go.mod / go.sum
@@ -166,6 +167,21 @@ The `/events` stream sends an `event: state` message with the full
 plus a `:` comment line every 25s as a keepalive. There's no event-type
 differentiation — decode every `data:` payload as a `GameState`.
 
+### The category/item catalog
+
+Categories and items are static content, not user data, so they aren't
+stored in SQLite — `internal/catalog/catalog.yaml` is the single source of
+truth, embedded into the binary and loaded once at startup
+(`catalog.Load()`). `games`/`game_items` reference a `categoryId`/`itemId`
+by plain string; there's no database foreign key to a catalog table, since
+there isn't one. Add a new category or item by editing that one YAML file
+— no migration needed. Every item's `label` must be an exact class name
+one of the frontend's two on-device detectors can recognize (see
+`frontend/src/lib/detector.ts`); `internal/catalog/catalog_test.go`
+enforces this against both models' real vocabularies, so a typo or a
+made-up label fails `go test` instead of silently shipping an
+uncapturable task.
+
 ### Configuration
 
 | Env var   | Default        | Description                          |
@@ -221,7 +237,7 @@ Supporting structure:
 - `src/lib/api.ts` — typed fetch client for the backend (mirrors `internal/models`), plus an SSE subscription helper.
 - `src/stores/game.ts` — a small reactive singleton (not Pinia — unnecessary for this scope) holding the live `GameState`, the current player's id, and the SSE connection; persists `{ gameId, playerId }` to `localStorage` so a page refresh mid-game doesn't lose your identity.
 - `src/components/CameraOverlay.vue` — the aim/scan/done capture UI: a real `getUserMedia` feed with an on-device detector running against it every ~400ms, auto-triggering a capture after a sustained match (consecutive-tick debouncing avoids a single flickery frame firing a false positive). There's no manual shutter button — passive detection is the only capture path.
-- `src/lib/detector.ts` — loads TensorFlow.js plus **one of two** on-device models per item: COCO-SSD (a fixed 80 object classes) for most items, or MobileNet (an ImageNet-1000 image classifier) as a fallback for items outside COCO-SSD's vocabulary entirely (e.g. "mountain tent", "daisy") — `pickDetector(label)` decides which, checked against the same 80-class set `internal/db/db_test.go` validates every seeded item against. Neither is an ES import: both are injected as `<script>` tags pointing at `public/vendor/{tf,coco-ssd,mobilenet}.min.js` (copied from `node_modules` by `scripts/copy-vendor.mjs`, wired into `postinstall`/`predev`/`prebuild-only`). Reason: `tfjs-converter` has a class method literally named `import` (`async import(keys, values) {}`), and Vite's lightweight import-scanner misreads `import(` there as a dynamic-import call, corrupting the file — this happens in Vite's transform pipeline itself, so `optimizeDeps` include/exclude doesn't help. Loading via `<script>` sidesteps Vite's JS transform for these files entirely, and as a bonus keeps the payload out of the initial bundle — each model's script and ~16MB of weights are only fetched the first time an item actually needs it.
+- `src/lib/detector.ts` — loads TensorFlow.js plus **one of two** on-device models per item: COCO-SSD (a fixed 80 object classes) for most items, or MobileNet (an ImageNet-1000 image classifier) as a fallback for items outside COCO-SSD's vocabulary entirely (e.g. "mountain tent", "daisy") — `pickDetector(label)` decides which, checked against the same two vocabularies `internal/catalog/catalog_test.go` validates every catalog item against. Neither is an ES import: both are injected as `<script>` tags pointing at `public/vendor/{tf,coco-ssd,mobilenet}.min.js` (copied from `node_modules` by `scripts/copy-vendor.mjs`, wired into `postinstall`/`predev`/`prebuild-only`). Reason: `tfjs-converter` has a class method literally named `import` (`async import(keys, values) {}`), and Vite's lightweight import-scanner misreads `import(` there as a dynamic-import call, corrupting the file — this happens in Vite's transform pipeline itself, so `optimizeDeps` include/exclude doesn't help. Loading via `<script>` sidesteps Vite's JS transform for these files entirely, and as a bonus keeps the payload out of the initial bundle — each model's script and ~16MB of weights are only fetched the first time an item actually needs it.
 - `src/lib/{avatar,itemIcons,categoryIcons}.ts` — small client-side cosmetic lookups (emoji/color) for players/items/categories, since the backend doesn't model those.
 - `src/i18n/` — `vue-i18n` setup. UI strings are in English and Danish (`locales/en.ts`, `locales/da.ts`); the locale is picked automatically from the browser's `navigator.languages`, falling back to English. Category and item names are also translated (`lib/catalogNames.ts` looks up the localized name by ID, falling back to the server's English string for anything not yet translated); server-side error messages come from the backend and aren't translated.
 

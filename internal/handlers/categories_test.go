@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/mogensen/lensrace/internal/catalog"
 	"github.com/mogensen/lensrace/internal/db"
 	"github.com/mogensen/lensrace/internal/handlers"
 	"github.com/mogensen/lensrace/internal/realtime"
@@ -27,8 +28,18 @@ func newTestApp(t *testing.T) *sql.DB {
 	return conn
 }
 
+func newTestCatalog(t *testing.T) *catalog.Catalog {
+	t.Helper()
+
+	cat, err := catalog.Load()
+	if err != nil {
+		t.Fatalf("catalog.Load: %v", err)
+	}
+	return cat
+}
+
 func TestHealthEndpoint(t *testing.T) {
-	app := server.New(newTestApp(t), realtime.New())
+	app := server.New(newTestApp(t), realtime.New(), newTestCatalog(t))
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/health", nil))
 	if err != nil {
@@ -50,7 +61,7 @@ func TestHealthEndpoint(t *testing.T) {
 }
 
 func TestCategoriesEndpoint(t *testing.T) {
-	app := server.New(newTestApp(t), realtime.New())
+	app := server.New(newTestApp(t), realtime.New(), newTestCatalog(t))
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/categories", nil))
 	if err != nil {

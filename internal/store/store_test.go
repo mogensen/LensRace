@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mogensen/lensrace/internal/catalog"
 	"github.com/mogensen/lensrace/internal/db"
 )
 
@@ -23,7 +24,13 @@ func newTestStore(t *testing.T) *Store {
 	if err := db.Migrate(conn); err != nil {
 		t.Fatalf("db.Migrate: %v", err)
 	}
-	return New(conn)
+
+	cat, err := catalog.Load()
+	if err != nil {
+		t.Fatalf("catalog.Load: %v", err)
+	}
+
+	return New(conn, cat)
 }
 
 func mustCreateGame(t *testing.T, s *Store, duration int) (string, string) {
@@ -63,11 +70,7 @@ func TestCreateGame(t *testing.T) {
 func TestCreateGameDrawsRandomSubsetOfItemPool(t *testing.T) {
 	s := newTestStore(t)
 
-	var poolSize int
-	if err := s.db.QueryRowContext(context.Background(),
-		`SELECT COUNT(*) FROM items WHERE category_id = ?`, testCategoryID).Scan(&poolSize); err != nil {
-		t.Fatalf("count item pool: %v", err)
-	}
+	poolSize := len(s.cat.ItemIDsInCategory(testCategoryID))
 	if poolSize <= TasksPerGame {
 		t.Fatalf("item pool for %q has %d items, want more than %d to exercise random selection", testCategoryID, poolSize, TasksPerGame)
 	}
