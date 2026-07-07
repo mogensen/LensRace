@@ -27,7 +27,6 @@ type Stage = 'aim' | 'scan' | 'done' | 'error'
 const stage = ref<Stage>('aim')
 const cameraError = ref('')
 const videoEl = ref<HTMLVideoElement | null>(null)
-const notFound = ref(false)
 const detectionTrouble = ref(false)
 
 let mediaStream: MediaStream | null = null
@@ -77,8 +76,7 @@ onUnmounted(() => {
 })
 
 // Whether a set of detections includes the item we're hunting, above the
-// score threshold. Shared by the passive loop and the manual shutter tap
-// so tapping the shutter can never bypass real verification.
+// score threshold.
 function matchesItem(detections: Awaited<ReturnType<typeof detectObjects>>): boolean {
   return detections.some(
     (d) => d.class.toLowerCase() === props.item.label.toLowerCase() && d.score >= MIN_SCORE,
@@ -145,37 +143,6 @@ function stopDetectionLoop() {
   }
 }
 
-// The shutter button runs one real detection pass on the current frame —
-// it does NOT skip verification. A manual tap only needs a single match
-// (vs. the passive loop's MATCH_THRESHOLD_TICKS) since it's a deliberate,
-// one-off action rather than continuous background polling that needs
-// debouncing against transient false positives.
-async function onShutterTap() {
-  if (stage.value !== 'aim' || !videoEl.value) return
-
-  let matched = false
-  try {
-    const detections = await detectObjects(videoEl.value)
-    logDetections(detections)
-    matched = matchesItem(detections)
-  } catch (e) {
-    // Detection failure on a manual tap is treated as "not found" below,
-    // not a silent success — but it's still logged so a genuinely broken
-    // model doesn't look identical to "just didn't see it".
-    console.error('[detector] shutter-tap detection failed:', e)
-  }
-
-  if (!matched) {
-    notFound.value = true
-    setTimeout(() => {
-      notFound.value = false
-    }, 1200)
-    return
-  }
-
-  beginCapture()
-}
-
 function beginCapture() {
   if (stage.value !== 'aim') return
   stopDetectionLoop()
@@ -227,11 +194,11 @@ function beginCapture() {
       style="border-color: #fff6ea"
     ></span>
     <span
-      class="pointer-events-none absolute bottom-[188px] left-6 h-[30px] w-[30px] rounded-bl-lg border-4 border-t-0 border-r-0"
+      class="pointer-events-none absolute bottom-6 left-6 h-[30px] w-[30px] rounded-bl-lg border-4 border-t-0 border-r-0"
       style="border-color: #fff6ea"
     ></span>
     <span
-      class="pointer-events-none absolute right-6 bottom-[188px] h-[30px] w-[30px] rounded-br-lg border-4 border-t-0 border-l-0"
+      class="pointer-events-none absolute right-6 bottom-6 h-[30px] w-[30px] rounded-br-lg border-4 border-t-0 border-l-0"
       style="border-color: #fff6ea"
     ></span>
 
@@ -246,7 +213,7 @@ function beginCapture() {
       style="
         top: 84px;
         right: 24px;
-        bottom: 188px;
+        bottom: 24px;
         left: 24px;
         border-color: rgba(255, 246, 234, 0.75);
         animation: sh-frame-pulse 1.8s ease-in-out infinite;
@@ -287,17 +254,9 @@ function beginCapture() {
       <div v-if="stage === 'aim'" class="flex flex-col items-center gap-3.5">
         <div
           class="rounded-full px-3 py-1 text-sm font-bold"
-          :style="
-            notFound
-              ? 'background: var(--sh-orange); color: #fff; animation: sh-wiggle .4s ease-in-out'
-              : 'background: rgba(0, 0, 0, 0.4); color: rgba(255, 246, 234, 0.9)'
-          "
+          style="background: rgba(0, 0, 0, 0.4); color: rgba(255, 246, 234, 0.9)"
         >
-          {{
-            notFound
-              ? t('camera.cantSee', { item: localizedItemName.toLowerCase() })
-              : t('camera.holdSteady', { item: localizedItemName.toLowerCase() })
-          }}
+          {{ t('camera.holdSteady', { item: localizedItemName.toLowerCase() }) }}
         </div>
         <div
           v-if="detectionTrouble"
@@ -367,20 +326,6 @@ function beginCapture() {
           {{ cameraError }}
         </div>
       </div>
-    </div>
-
-    <div class="relative z-[2] flex justify-center pb-10">
-      <button
-        v-if="stage === 'aim'"
-        class="relative h-[84px] w-[84px] rounded-full"
-        style="background: #fff6ea; border: 6px solid rgba(255, 255, 255, 0.45)"
-        @click="onShutterTap"
-      >
-        <span
-          class="absolute inset-[9px] rounded-full border-[3px]"
-          style="background: var(--sh-orange); border-color: var(--sh-ink)"
-        ></span>
-      </button>
     </div>
   </div>
 </template>
