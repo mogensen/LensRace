@@ -11,7 +11,7 @@ import { preloadDetectors } from '@/lib/detector'
 
 // Lazy-loaded: this pulls in TensorFlow.js + COCO-SSD, which is hundreds of
 // KB and shouldn't block loading the rest of the Play view for players who
-// haven't tapped SNAP yet.
+// haven't tapped a task yet.
 const CameraOverlay = defineAsyncComponent(() => import('@/components/CameraOverlay.vue'))
 
 const props = defineProps<{ id: string }>()
@@ -98,11 +98,6 @@ function openCamera(item: Item) {
   activeItem.value = item
 }
 
-function onSnap() {
-  const next = store.state.gameState?.items.find((i) => !isFound(i.id))
-  if (next) openCamera(next)
-}
-
 function onCaptured() {
   activeItem.value = null
 }
@@ -182,7 +177,7 @@ function onCaptureFailed(message: string) {
       </div>
     </div>
 
-    <div class="flex flex-1 flex-col gap-2.5 overflow-y-auto px-5 pb-24">
+    <div class="flex flex-1 flex-col gap-2.5 overflow-y-auto px-5 pb-6">
       <button
         v-for="it in store.state.gameState.items"
         :key="it.id"
@@ -226,25 +221,9 @@ function onCaptureFailed(message: string) {
       </button>
     </div>
 
-    <button
-      class="absolute bottom-5 left-1/2 flex h-[78px] w-[78px] -translate-x-1/2 flex-col items-center justify-center gap-0.5 rounded-full text-white"
-      style="
-        background: var(--sh-orange);
-        border: 3.5px solid var(--sh-ink);
-        box-shadow:
-          0 8px 0 var(--sh-ink),
-          0 14px 22px -6px rgba(42, 35, 27, 0.5);
-      "
-      :disabled="foundCount >= totalItems"
-      @click="onSnap"
-    >
-      <span class="text-2xl leading-none">📷</span>
-      <span class="sh-title text-xs tracking-wide">SNAP</span>
-    </button>
-
     <p
       v-if="error"
-      class="absolute bottom-28 left-1/2 -translate-x-1/2 rounded-xl border-2 px-3 py-1.5 text-sm font-bold"
+      class="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-xl border-2 px-3 py-1.5 text-sm font-bold"
       style="background: #fff; border-color: var(--sh-orange); color: var(--sh-orange)"
     >
       {{ error }}

@@ -17,10 +17,17 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
   font-family: 'Nunito', system-ui, sans-serif;
   color: var(--sh-ink);
+  /* Belt-and-suspenders with index.html's viewport meta tag: modern iOS
+     Safari ignores `user-scalable=no` for accessibility reasons and still
+     allows pinch-zoom regardless, but respects touch-action. `pan-x pan-y`
+     (as opposed to `manipulation`) blocks pinch-zoom as well as
+     double-tap-zoom, while still allowing normal scrolling/panning. */
+  touch-action: pan-x pan-y;
 }
 
 .sh-app {
