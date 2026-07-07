@@ -1,0 +1,73 @@
+-- Two new categories. Every item's `label` must be one of the 80 fixed
+-- class names TensorFlow.js COCO-SSD (the on-device detector) can actually
+-- recognize — it has no concept of "tree", "stone", "flower", "tent", or
+-- "boot", so those don't appear here. Where the theme calls for something
+-- outside COCO-SSD's vocabulary, the closest detectable class is used
+-- instead (e.g. `potted plant` standing in for "wildflower"), with
+-- `display_name` naming it honestly rather than pretending it's the
+-- literal thing.
+INSERT INTO categories (id, name, description) VALUES
+    ('forest', 'Forest', 'Find wildlife, plants, and trail gear out in the woods.'),
+    ('camp-life', 'Camp Life', 'Everything you''ll spot around a campsite.');
+
+INSERT INTO items (id, category_id, label, display_name) VALUES
+    ('forest-bird', 'forest', 'bird', 'Bird'),
+    ('forest-cat', 'forest', 'cat', 'Cat'),
+    ('forest-horse', 'forest', 'horse', 'Horse'),
+    ('forest-sheep', 'forest', 'sheep', 'Sheep'),
+    ('forest-cow', 'forest', 'cow', 'Cow'),
+    ('forest-bear', 'forest', 'bear', 'Bear'),
+    ('forest-frisbee', 'forest', 'frisbee', 'Frisbee'),
+    ('forest-kite', 'forest', 'kite', 'Kite'),
+    ('forest-sports-ball', 'forest', 'sports ball', 'Ball'),
+    ('forest-skis', 'forest', 'skis', 'Skis'),
+    ('forest-snowboard', 'forest', 'snowboard', 'Snowboard'),
+    ('forest-broccoli', 'forest', 'broccoli', 'Broccoli'),
+    ('forest-carrot', 'forest', 'carrot', 'Carrot'),
+    ('forest-banana', 'forest', 'banana', 'Banana'),
+    ('forest-apple', 'forest', 'apple', 'Apple'),
+    ('forest-orange', 'forest', 'orange', 'Orange'),
+    ('forest-sandwich', 'forest', 'sandwich', 'Sandwich'),
+    ('forest-cell-phone', 'forest', 'cell phone', 'Phone'),
+    ('forest-knife', 'forest', 'knife', 'Knife'),
+    ('forest-backpack', 'forest', 'backpack', 'Backpack'),
+    ('forest-umbrella', 'forest', 'umbrella', 'Umbrella'),
+    ('forest-bench', 'forest', 'bench', 'Bench'),
+    ('forest-potted-plant', 'forest', 'potted plant', 'Wildflower'),
+    ('forest-dog', 'forest', 'dog', 'Dog'),
+    ('forest-bicycle', 'forest', 'bicycle', 'Bicycle'),
+    ('forest-teddy-bear', 'forest', 'teddy bear', 'Teddy Bear'),
+    ('forest-bottle', 'forest', 'bottle', 'Bottle'),
+    ('forest-fork', 'forest', 'fork', 'Fork'),
+    ('forest-spoon', 'forest', 'spoon', 'Spoon'),
+    ('forest-bowl', 'forest', 'bowl', 'Bowl'),
+    ('camp-boat', 'camp-life', 'boat', 'Boat'),
+    ('camp-suitcase', 'camp-life', 'suitcase', 'Suitcase'),
+    ('camp-wine-glass', 'camp-life', 'wine glass', 'Wine Glass'),
+    ('camp-hot-dog', 'camp-life', 'hot dog', 'Hot Dog'),
+    ('camp-pizza', 'camp-life', 'pizza', 'Pizza'),
+    ('camp-donut', 'camp-life', 'donut', 'Donut'),
+    ('camp-cake', 'camp-life', 'cake', 'Cake'),
+    ('camp-couch', 'camp-life', 'couch', 'Couch'),
+    ('camp-bed', 'camp-life', 'bed', 'Bed'),
+    ('camp-dining-table', 'camp-life', 'dining table', 'Picnic Table'),
+    ('camp-toilet', 'camp-life', 'toilet', 'Toilet'),
+    ('camp-tv', 'camp-life', 'tv', 'TV'),
+    ('camp-microwave', 'camp-life', 'microwave', 'Microwave'),
+    ('camp-oven', 'camp-life', 'oven', 'Oven'),
+    ('camp-toaster', 'camp-life', 'toaster', 'Toaster'),
+    ('camp-sink', 'camp-life', 'sink', 'Sink'),
+    ('camp-refrigerator', 'camp-life', 'refrigerator', 'Fridge'),
+    ('camp-hair-drier', 'camp-life', 'hair drier', 'Hair Dryer'),
+    ('camp-toothbrush', 'camp-life', 'toothbrush', 'Toothbrush'),
+    ('camp-cup', 'camp-life', 'cup', 'Cup'),
+    ('camp-scissors', 'camp-life', 'scissors', 'Scissors'),
+    ('camp-clock', 'camp-life', 'clock', 'Clock'),
+    ('camp-remote', 'camp-life', 'remote', 'Remote'),
+    ('camp-laptop', 'camp-life', 'laptop', 'Laptop'),
+    ('camp-handbag', 'camp-life', 'handbag', 'Bag'),
+    ('camp-frisbee', 'camp-life', 'frisbee', 'Frisbee'),
+    ('camp-kite', 'camp-life', 'kite', 'Kite'),
+    ('camp-knife', 'camp-life', 'knife', 'Knife'),
+    ('camp-backpack', 'camp-life', 'backpack', 'Backpack'),
+    ('camp-bench', 'camp-life', 'bench', 'Bench');

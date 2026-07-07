@@ -80,6 +80,71 @@ func TestMigrateSeedsCategoriesAndItems(t *testing.T) {
 	}
 }
 
+// cocoSsdClasses is the fixed, closed set of object classes the frontend's
+// on-device detector (TensorFlow.js COCO-SSD) can ever recognize — see
+// coco-ssd's classes.ts. An item's label that isn't in this list can never
+// be auto-captured, no matter what the player points the camera at, so
+// every seeded item must use one of these exact strings.
+var cocoSsdClasses = map[string]bool{
+	"person": true, "bicycle": true, "car": true, "motorcycle": true, "airplane": true,
+	"bus": true, "train": true, "truck": true, "boat": true, "traffic light": true,
+	"fire hydrant": true, "stop sign": true, "parking meter": true, "bench": true, "bird": true,
+	"cat": true, "dog": true, "horse": true, "sheep": true, "cow": true,
+	"elephant": true, "bear": true, "zebra": true, "giraffe": true, "backpack": true,
+	"umbrella": true, "handbag": true, "tie": true, "suitcase": true, "frisbee": true,
+	"skis": true, "snowboard": true, "sports ball": true, "kite": true, "baseball bat": true,
+	"baseball glove": true, "skateboard": true, "surfboard": true, "tennis racket": true, "bottle": true,
+	"wine glass": true, "cup": true, "fork": true, "knife": true, "spoon": true,
+	"bowl": true, "banana": true, "apple": true, "sandwich": true, "orange": true,
+	"broccoli": true, "carrot": true, "hot dog": true, "pizza": true, "donut": true,
+	"cake": true, "chair": true, "couch": true, "potted plant": true, "bed": true,
+	"dining table": true, "toilet": true, "tv": true, "laptop": true, "mouse": true,
+	"remote": true, "keyboard": true, "cell phone": true, "microwave": true, "oven": true,
+	"toaster": true, "sink": true, "refrigerator": true, "book": true, "clock": true,
+	"vase": true, "scissors": true, "teddy bear": true, "hair drier": true, "toothbrush": true,
+}
+
+func TestSeededItemLabelsAreDetectableByCocoSsd(t *testing.T) {
+	conn := openTestDB(t)
+
+	rows, err := conn.Query(`SELECT id, label FROM items`)
+	if err != nil {
+		t.Fatalf("query items: %v", err)
+	}
+	defer rows.Close()
+
+	var undetectable []string
+	for rows.Next() {
+		var id, label string
+		if err := rows.Scan(&id, &label); err != nil {
+			t.Fatalf("scan item: %v", err)
+		}
+		if !cocoSsdClasses[label] {
+			undetectable = append(undetectable, id+" (label="+label+")")
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate items: %v", err)
+	}
+	if len(undetectable) > 0 {
+		t.Fatalf("items with a label the on-device detector can never match: %v", undetectable)
+	}
+}
+
+func TestForestAndCampLifeHaveAtLeast30Items(t *testing.T) {
+	conn := openTestDB(t)
+
+	for _, categoryID := range []string{"forest", "camp-life"} {
+		var count int
+		if err := conn.QueryRow(`SELECT COUNT(*) FROM items WHERE category_id = ?`, categoryID).Scan(&count); err != nil {
+			t.Fatalf("count items for %s: %v", categoryID, err)
+		}
+		if count < 30 {
+			t.Errorf("category %s has %d items, want at least 30", categoryID, count)
+		}
+	}
+}
+
 func TestSplitStatements(t *testing.T) {
 	script := "CREATE TABLE a (id TEXT);\n\nINSERT INTO a VALUES ('x');\n"
 	stmts := splitStatements(script)
