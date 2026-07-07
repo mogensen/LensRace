@@ -14,7 +14,10 @@
 // Loading the UMD build via <script> (see scripts/copy-vendor.mjs)
 // sidesteps Vite's JS transform entirely for these files. Each model's
 // script + weights are only fetched the first time that model is actually
-// needed, so a game that never needs MobileNet never pays its ~16MB cost.
+// used by default, but callers can (and should — see preloadDetectors)
+// kick off both models' downloads early, before a round starts, rather
+// than leaving it to chance whether a player still has a connection by
+// the time the camera actually needs one.
 
 interface CocoSsdPrediction {
   class: string
@@ -214,6 +217,30 @@ export async function detectObjects(video: HTMLVideoElement, itemLabel: string):
   const model = await loadMobilenet()
   const predictions = await model.classify(video, MOBILENET_TOP_K)
   return predictions.map((p) => ({ class: p.className, score: p.probability }))
+}
+
+/**
+ * Kicks off loading BOTH models, without waiting for them to finish.
+ * Deliberately unconditional — players are as likely to be somewhere with
+ * flaky or no connectivity once play actually starts (a forest, a
+ * campsite) as somewhere reliable, so waiting to see which single model a
+ * round's items need and fetching only that one is a bet against exactly
+ * the situation this app is built for. Loading is cached per model (see
+ * loadCocoSsd / loadMobilenet), so calling this redundantly, or before
+ * detectObjects ever runs, never triggers a duplicate download. Meant to
+ * be called as early as possible — home screen, lobby — while there's
+ * still a decent chance of a good connection, well before a player first
+ * opens the camera mid-round. Failures are swallowed: a failed preload
+ * isn't fatal here, since detectObjects retries the load itself the
+ * moment a player actually opens the camera.
+ */
+export function preloadDetectors(): void {
+  loadCocoSsd().catch(() => {
+    // Swallowed — see doc comment above.
+  })
+  loadMobilenet().catch(() => {
+    // Swallowed — see doc comment above.
+  })
 }
 
 /**
