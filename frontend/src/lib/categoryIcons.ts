@@ -4,6 +4,8 @@
 const ICONS: Record<string, string> = {
   'house-essentials': '🏠',
   'city-scavenger': '🌆',
+  forest: '🌲',
+  'camp-life': '⛺',
 }
 
 export function categoryEmoji(categoryId: string): string {
