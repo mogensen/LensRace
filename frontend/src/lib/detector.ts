@@ -40,7 +40,9 @@ interface MobileNetModel {
 declare global {
   interface Window {
     cocoSsd?: { load(): Promise<CocoSsdModel> }
-    mobilenet?: { load(config?: { version: 1 | 2; alpha: number }): Promise<MobileNetModel> }
+    mobilenet?: {
+      load(config?: { version: 1 | 2; alpha: number; modelUrl?: string; inputRange?: [number, number] }): Promise<MobileNetModel>
+    }
   }
 }
 
@@ -172,6 +174,20 @@ function loadCocoSsd(): Promise<CocoSsdModel> {
   return cocoModelPromise
 }
 
+// By default, @tensorflow-models/mobilenet fetches its weights from
+// tfhub.dev (see its bundled MODEL_INFO table), not the
+// storage.googleapis.com host COCO-SSD uses directly — tfhub.dev sits in
+// front of the same weights via a redirect, but is a separate host with
+// its own availability, and got blocked outright in one real environment
+// this app was tested from ("mobilenet model doesn't load" while COCO-SSD
+// worked fine). Pointing modelUrl straight at the same
+// storage.googleapis.com-hosted files coco-ssd already depends on sides
+// steps tfhub.dev entirely. This is the same v1/alpha-1.0 architecture and
+// weights tfhub.dev would have served (see MODEL_INFO's inputRange for
+// this config, which must be passed explicitly when overriding modelUrl).
+const MOBILENET_MODEL_URL = 'https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_1.0_224/model.json'
+const MOBILENET_INPUT_RANGE: [number, number] = [0, 1]
+
 let mobilenetModelPromise: Promise<MobileNetModel> | null = null
 
 function loadMobilenet(): Promise<MobileNetModel> {
@@ -183,7 +199,12 @@ function loadMobilenet(): Promise<MobileNetModel> {
       // v1/alpha 1.0 is the package default and best-accuracy config; its
       // weights are a similar ~16MB to COCO-SSD's, so this isn't a bigger
       // download than what the app already fetches for most items.
-      return window.mobilenet.load({ version: 1, alpha: 1.0 })
+      return window.mobilenet.load({
+        version: 1,
+        alpha: 1.0,
+        modelUrl: MOBILENET_MODEL_URL,
+        inputRange: MOBILENET_INPUT_RANGE,
+      })
     })().catch((err: unknown) => {
       mobilenetModelPromise = null
       throw err
