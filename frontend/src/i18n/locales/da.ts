@@ -22,6 +22,8 @@ export default {
   },
   lobby: {
     shareCode: 'DEL DENNE KODE',
+    copyLink: 'Kopiér invitationslink',
+    linkCopied: 'Link kopieret!',
     category: 'Kategori',
     roundLength: 'Rundens længde',
     setByHost: 'sat af værten',
@@ -37,6 +39,7 @@ export default {
       durationFailed: 'Kunne ikke ændre rundens længde',
       categoryFailed: 'Kunne ikke ændre kategori',
       startFailed: 'Kunne ikke starte spillet',
+      copyLinkFailed: 'Kunne ikke kopiere linket',
     },
   },
   play: {

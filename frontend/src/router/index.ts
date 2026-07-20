@@ -5,6 +5,7 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'home', component: HomeView },
+    { path: '/join/:code', name: 'join', component: HomeView, props: true },
     {
       path: '/games/:id/lobby',
       name: 'lobby',
