@@ -20,6 +20,8 @@ const en = {
   },
   lobby: {
     shareCode: 'SHARE THIS CODE',
+    copyLink: 'Copy invite link',
+    linkCopied: 'Link copied!',
     category: 'Category',
     roundLength: 'Round length',
     setByHost: 'set by host',
@@ -35,6 +37,7 @@ const en = {
       durationFailed: 'Could not change round length',
       categoryFailed: 'Could not change category',
       startFailed: 'Could not start the game',
+      copyLinkFailed: 'Could not copy the link',
     },
   },
   play: {

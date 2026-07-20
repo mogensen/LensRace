@@ -6,15 +6,17 @@ import { useGameStore } from '@/stores/game'
 import { ApiError, listCategories, type Category } from '@/lib/api'
 import { preloadDetectors } from '@/lib/detector'
 
+const props = defineProps<{ code?: string }>()
 const router = useRouter()
 const store = useGameStore()
 const { t } = useI18n()
 
 const name = ref('')
-const joinCode = ref('')
+const joinCode = ref(props.code?.toUpperCase().replace(/[^A-Z0-9]/g, '') ?? '')
 const loading = ref<'create' | 'join' | null>(null)
 const error = ref('')
 const categories = ref<Category[]>([])
+const nameInputRef = ref<HTMLInputElement | null>(null)
 
 onMounted(async () => {
   // Earliest possible point to start downloading both on-device models —
@@ -23,6 +25,10 @@ onMounted(async () => {
   // here (while there's still a decent chance of a good connection)
   // matters. See preloadDetectors's doc comment.
   preloadDetectors()
+
+  // Arrived via a shared invite link — the code is already filled in, so
+  // send focus straight to the one field the player still has to fill.
+  if (joinCode.value) nameInputRef.value?.focus()
 
   try {
     categories.value = await listCategories()
@@ -104,6 +110,7 @@ const canCreate = computed(() => categories.value.length > 0 && loading.value ==
       </div>
 
       <input
+        ref="nameInputRef"
         v-model="name"
         data-testid="name-input"
         :placeholder="t('home.namePlaceholder')"

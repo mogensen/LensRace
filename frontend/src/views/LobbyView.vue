@@ -15,6 +15,7 @@ const { t, te } = useI18n()
 
 const categories = ref<Category[]>([])
 const error = ref('')
+const linkCopied = ref(false)
 
 // The backend accepts any duration from 30s to 3600s, but a scavenger hunt
 // round realistically wants to be short — this range (and the 300s
@@ -94,6 +95,19 @@ async function onStart() {
     error.value = e instanceof ApiError ? e.message : t('lobby.errors.startFailed')
   }
 }
+
+async function onCopyLink() {
+  const code = store.state.gameState?.game.joinCode
+  if (!code) return
+  const link = `${window.location.origin}/join/${code}`
+  try {
+    await navigator.clipboard.writeText(link)
+    linkCopied.value = true
+    setTimeout(() => (linkCopied.value = false), 2000)
+  } catch {
+    error.value = t('lobby.errors.copyLinkFailed')
+  }
+}
 </script>
 
 <template>
@@ -117,6 +131,13 @@ async function onStart() {
           {{ ch }}
         </span>
       </div>
+      <button
+        data-testid="copy-link-button"
+        class="sh-btn sh-btn-yellow mt-3 px-4 py-2 text-sm"
+        @click="onCopyLink"
+      >
+        {{ linkCopied ? `✅ ${t('lobby.linkCopied')}` : `🔗 ${t('lobby.copyLink')}` }}
+      </button>
     </div>
 
     <div class="sh-title mb-2 text-base">{{ t('lobby.category') }}</div>
