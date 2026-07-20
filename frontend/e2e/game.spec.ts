@@ -24,10 +24,13 @@ async function startGame(page: Page) {
   await page.getByTestId('duration-input').dispatchEvent('change')
   await expect(page.getByTestId('duration-label')).toContainText('1 min')
 
-  // force: true because the start button has a continuous "bob" CSS
-  // animation, which fails Playwright's default actionability stability
-  // check (the button's bounding box never settles).
-  await page.getByTestId('start-button').click({ force: true })
+  // A coordinate-based click races the start button's continuous "bob" CSS
+  // animation (which also fails Playwright's default actionability
+  // stability check) — the button can be a few pixels away from where the
+  // click lands by the time it's delivered. Dispatching a synthetic click
+  // event instead invokes the handler directly, sidestepping position
+  // entirely.
+  await page.getByTestId('start-button').dispatchEvent('click')
   await page.waitForURL(/\/games\/.+\/play/)
 }
 

@@ -33,9 +33,13 @@ test layer for Vue components, so e2e is where behavior gets verified.
   manual `waitForSelector` + read; the SSE-driven UI in this app updates
   asynchronously and the auto-retry is what makes that reliable.
 - Don't add `{ force: true }` to a click to route around a flaky
-  actionability check unless you know exactly why (the one existing use is
-  documented inline: a continuously CSS-animated button whose bounding box
-  never settles).
+  actionability check — it still does a real coordinate-based click, so a
+  continuously CSS-animated target (like the start button's "bob") can
+  still get missed, especially once something earlier in the test (e.g.
+  a network round-trip) shifts its timing. Use
+  `locator.dispatchEvent('click')` instead: a synthetic event dispatched
+  straight to the element, unaffected by position or animation. See
+  `startGame` for the pattern.
 
 ## Running tests
 
