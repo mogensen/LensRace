@@ -16,13 +16,13 @@ async function getJoinCode(page: Page): Promise<string> {
 // DURATION_MIN — the range input clamps below this). Any test that starts a
 // round should dial it down to this first: the backend default is a full 5
 // minutes, and nothing in this suite should ever wait that long.
-const SHORT_DURATION_SECONDS = 60
+const SHORT_DURATION_SECONDS = 15
 
 // Must be called by the host, from the lobby, before starting.
 async function startGame(page: Page) {
   await page.getByTestId('duration-input').fill(String(SHORT_DURATION_SECONDS))
   await page.getByTestId('duration-input').dispatchEvent('change')
-  await expect(page.getByTestId('duration-label')).toContainText('1 min')
+  await expect(page.getByTestId('duration-label')).toContainText('15s')
 
   // A coordinate-based click races the start button's continuous "bob" CSS
   // animation (which also fails Playwright's default actionability

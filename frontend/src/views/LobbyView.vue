@@ -20,10 +20,10 @@ const linkCopied = ref(false)
 const qrDataUrl = ref('')
 const showQr = ref(false)
 
-// The backend accepts any duration from 30s to 3600s, but a scavenger hunt
+// The backend accepts any duration from 15s to 3600s, but a scavenger hunt
 // round realistically wants to be short — this range (and the 300s
 // default) come from the original design's own roundSeconds prop.
-const DURATION_MIN = 60
+const DURATION_MIN = 15
 const DURATION_MAX = 600
 const DURATION_STEP = 30
 const localDuration = ref(300)
