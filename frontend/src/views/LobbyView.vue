@@ -2,6 +2,7 @@
 import { onMounted, watch, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import QRCode from 'qrcode'
 import { useGameStore } from '@/stores/game'
 import { listCategories, ApiError, type Category } from '@/lib/api'
 import { categoryName } from '@/lib/catalogNames'
@@ -16,6 +17,8 @@ const { t, te } = useI18n()
 const categories = ref<Category[]>([])
 const error = ref('')
 const linkCopied = ref(false)
+const qrDataUrl = ref('')
+const showQr = ref(false)
 
 // The backend accepts any duration from 30s to 3600s, but a scavenger hunt
 // round realistically wants to be short — this range (and the 300s
@@ -96,16 +99,30 @@ async function onStart() {
   }
 }
 
-async function onCopyLink() {
+const inviteLink = computed(() => {
   const code = store.state.gameState?.game.joinCode
-  if (!code) return
-  const link = `${window.location.origin}/join/${code}`
+  return code ? `${window.location.origin}/join/${code}` : ''
+})
+
+async function onCopyLink() {
+  if (!inviteLink.value) return
   try {
-    await navigator.clipboard.writeText(link)
+    await navigator.clipboard.writeText(inviteLink.value)
     linkCopied.value = true
     setTimeout(() => (linkCopied.value = false), 2000)
   } catch {
     error.value = t('lobby.errors.copyLinkFailed')
+  }
+}
+
+async function onShowQr() {
+  if (!inviteLink.value) return
+  error.value = ''
+  try {
+    qrDataUrl.value = await QRCode.toDataURL(inviteLink.value, { width: 240, margin: 1 })
+    showQr.value = true
+  } catch {
+    error.value = t('lobby.errors.qrFailed')
   }
 }
 </script>
@@ -131,13 +148,42 @@ async function onCopyLink() {
           {{ ch }}
         </span>
       </div>
-      <button
-        data-testid="copy-link-button"
-        class="sh-btn sh-btn-yellow mt-3 px-4 py-2 text-sm"
-        @click="onCopyLink"
-      >
-        {{ linkCopied ? `✅ ${t('lobby.linkCopied')}` : `🔗 ${t('lobby.copyLink')}` }}
-      </button>
+      <div class="mt-3 flex justify-center gap-2">
+        <button
+          data-testid="copy-link-button"
+          class="sh-btn sh-btn-yellow px-4 py-2 text-sm"
+          @click="onCopyLink"
+        >
+          {{ linkCopied ? `✅ ${t('lobby.linkCopied')}` : `🔗 ${t('lobby.copyLink')}` }}
+        </button>
+        <button
+          data-testid="show-qr-button"
+          class="sh-btn sh-btn-yellow px-4 py-2 text-sm"
+          @click="onShowQr"
+        >
+          📱 {{ t('lobby.showQr') }}
+        </button>
+      </div>
+    </div>
+
+    <div
+      v-if="showQr"
+      data-testid="qr-modal"
+      class="fixed inset-0 z-40 flex items-center justify-center p-6"
+      style="background: rgba(0, 0, 0, 0.5)"
+      @click.self="showQr = false"
+    >
+      <div class="sh-card flex flex-col items-center gap-4 p-6" style="background: #fff">
+        <div class="sh-title text-base">{{ t('lobby.scanToJoin') }}</div>
+        <img :src="qrDataUrl" :alt="t('lobby.showQr')" data-testid="qr-code-image" class="h-60 w-60" />
+        <button
+          data-testid="close-qr-button"
+          class="sh-btn sh-btn-yellow px-4 py-2 text-sm"
+          @click="showQr = false"
+        >
+          {{ t('lobby.close') }}
+        </button>
+      </div>
     </div>
 
     <div class="sh-title mb-2 text-base">{{ t('lobby.category') }}</div>

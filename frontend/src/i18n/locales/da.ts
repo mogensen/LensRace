@@ -24,6 +24,9 @@ export default {
     shareCode: 'DEL DENNE KODE',
     copyLink: 'Kopiér invitationslink',
     linkCopied: 'Link kopieret!',
+    showQr: 'Vis QR-kode',
+    scanToJoin: 'Scan for at deltage',
+    close: 'Luk',
     category: 'Kategori',
     roundLength: 'Rundens længde',
     setByHost: 'sat af værten',
@@ -40,6 +43,7 @@ export default {
       categoryFailed: 'Kunne ikke ændre kategori',
       startFailed: 'Kunne ikke starte spillet',
       copyLinkFailed: 'Kunne ikke kopiere linket',
+      qrFailed: 'Kunne ikke generere QR-koden',
     },
   },
   play: {

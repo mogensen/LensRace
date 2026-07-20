@@ -22,6 +22,9 @@ const en = {
     shareCode: 'SHARE THIS CODE',
     copyLink: 'Copy invite link',
     linkCopied: 'Link copied!',
+    showQr: 'Show QR code',
+    scanToJoin: 'Scan to join',
+    close: 'Close',
     category: 'Category',
     roundLength: 'Round length',
     setByHost: 'set by host',
@@ -38,6 +41,7 @@ const en = {
       categoryFailed: 'Could not change category',
       startFailed: 'Could not start the game',
       copyLinkFailed: 'Could not copy the link',
+      qrFailed: 'Could not generate the QR code',
     },
   },
   play: {
