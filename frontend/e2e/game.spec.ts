@@ -12,6 +12,25 @@ async function getJoinCode(page: Page): Promise<string> {
   return text.replace(/\s+/g, '')
 }
 
+// The shortest round length reachable through the UI (see LobbyView.vue's
+// DURATION_MIN — the range input clamps below this). Any test that starts a
+// round should dial it down to this first: the backend default is a full 5
+// minutes, and nothing in this suite should ever wait that long.
+const SHORT_DURATION_SECONDS = 60
+
+// Must be called by the host, from the lobby, before starting.
+async function startGame(page: Page) {
+  await page.getByTestId('duration-input').fill(String(SHORT_DURATION_SECONDS))
+  await page.getByTestId('duration-input').dispatchEvent('change')
+  await expect(page.getByTestId('duration-label')).toContainText('1 min')
+
+  // force: true because the start button has a continuous "bob" CSS
+  // animation, which fails Playwright's default actionability stability
+  // check (the button's bounding box never settles).
+  await page.getByTestId('start-button').click({ force: true })
+  await page.waitForURL(/\/games\/.+\/play/)
+}
+
 // Clipboard permission grants aren't supported uniformly across
 // Chromium/Firefox/WebKit in headless CI, so tests that need to read back
 // what was copied stub `writeText` instead of relying on the real OS
@@ -183,11 +202,7 @@ test.describe('joining a game', () => {
 
     await createGame(hostPage, 'Alice')
     const code = await getJoinCode(hostPage)
-    // force: true because the start button has a continuous "bob" CSS
-    // animation, which fails Playwright's default actionability stability
-    // check (the button's bounding box never settles).
-    await hostPage.getByTestId('start-button').click({ force: true })
-    await hostPage.waitForURL(/\/games\/.+\/play/)
+    await startGame(hostPage)
 
     const guestContext = await browser.newContext()
     const guestPage = await guestContext.newPage()

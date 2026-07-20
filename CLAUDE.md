@@ -11,6 +11,13 @@ test layer for Vue components, so e2e is where behavior gets verified.
 - Reuse `createGame(page, name)` and `getJoinCode(page)` from the top of
   `game.spec.ts` instead of re-deriving the create-game or code-parsing
   steps inline.
+- Any test that starts a round (i.e. calls `startGame(page)`, or otherwise
+  clicks `start-button`) must use a short duration first — `startGame`
+  already dials the lobby's round-length slider down to its UI minimum
+  (`SHORT_DURATION_SECONDS`, currently 60s) before starting. The backend
+  default is a full 5 minutes; nothing in this suite should ever wait that
+  long. Only skip this when the test is specifically about the default
+  duration itself (see `lobby round length`).
 - Use `page.getByTestId(...)` exclusively, never CSS selectors or text
   matching against styled content — every interactive element in the app
   has a `data-testid`. Add one to any new element a test needs to target.
