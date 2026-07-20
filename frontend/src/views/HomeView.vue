@@ -84,6 +84,11 @@ function onJoinInput(e: Event) {
 }
 
 const canCreate = computed(() => categories.value.length > 0 && loading.value === null)
+
+// Arrived via a shared invite link — the whole point is to join that
+// specific game, so creating a new one here would be a dead end (its own
+// game, code and all) rather than the game the link pointed at.
+const viaInviteLink = computed(() => !!props.code)
 </script>
 
 <template>
@@ -119,6 +124,7 @@ const canCreate = computed(() => categories.value.length > 0 && loading.value ==
       />
 
       <button
+        v-if="!viaInviteLink"
         data-testid="create-game-button"
         class="sh-btn sh-btn-primary py-4 text-xl"
         :disabled="!canCreate"
@@ -127,7 +133,11 @@ const canCreate = computed(() => categories.value.length > 0 && loading.value ==
         {{ loading === 'create' ? t('home.creatingButton') : `🎮 ${t('home.createButton')}` }}
       </button>
 
-      <div class="flex items-center gap-3 text-xs font-extrabold" style="color: #cbb59c">
+      <div
+        v-if="!viaInviteLink"
+        class="flex items-center gap-3 text-xs font-extrabold"
+        style="color: #cbb59c"
+      >
         <div class="h-[2.5px] flex-1 rounded" style="background: var(--sh-border-light)"></div>
         {{ t('home.or') }}
         <div class="h-[2.5px] flex-1 rounded" style="background: var(--sh-border-light)"></div>
