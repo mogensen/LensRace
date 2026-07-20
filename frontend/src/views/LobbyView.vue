@@ -25,7 +25,11 @@ const showQr = ref(false)
 // default) come from the original design's own roundSeconds prop.
 const DURATION_MIN = 15
 const DURATION_MAX = 600
-const DURATION_STEP = 30
+// Must evenly divide (value - DURATION_MIN) for every duration the slider
+// needs to land on exactly — a range input's programmatic value is
+// otherwise snapped/rejected against its step, e.g. 30 didn't divide
+// evenly from a 15s minimum (180 - 15 = 165, not a multiple of 30).
+const DURATION_STEP = 15
 const localDuration = ref(300)
 
 onMounted(async () => {
