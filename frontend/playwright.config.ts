@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import path from 'node:path'
 import process from 'node:process'
 import { defineConfig, devices } from '@playwright/test'
 
@@ -6,6 +8,20 @@ import { defineConfig, devices } from '@playwright/test'
  * https://github.com/motdotla/dotenv
  */
 // require('dotenv').config();
+
+// Claude Code sets CLAUDECODE=1 in every session (local or sandboxed) and,
+// in its sandboxed remote environments, pre-installs a single Chromium
+// build outside Playwright's own managed browser cache — at
+// PLAYWRIGHT_BROWSERS_PATH, not the revision-pinned path `npx playwright
+// install` would otherwise fetch, which those sandboxes have no egress to
+// download anyway. Point straight at that binary when it's actually there;
+// everywhere else (a human's machine, real CI) this does nothing and
+// Playwright resolves the browser the normal way. See CLAUDE.md.
+const claudeChromiumPath = process.env.PLAYWRIGHT_BROWSERS_PATH
+  ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium')
+  : undefined
+const useClaudeChromium =
+  !!process.env.CLAUDECODE && !!claudeChromiumPath && existsSync(claudeChromiumPath)
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -44,30 +60,38 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
 
-    /* Only on CI systems run the tests headless */
-    headless: !!process.env.CI,
+    /* CI has no display; Claude Code sandboxes don't either. */
+    headless: !!process.env.CI || !!process.env.CLAUDECODE,
   },
 
-  /* Configure projects for major browsers */
+  /* Configure projects for major browsers. Claude Code's sandboxes only
+   * have Chromium available (see useClaudeChromium above) — Firefox and
+   * WebKit aren't installed there, so skip them rather than fail every run;
+   * a human running the full cross-browser suite still gets all three. */
   projects: [
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
+        ...(useClaudeChromium ? { launchOptions: { executablePath: claudeChromiumPath } } : {}),
       },
     },
-    {
-      name: 'firefox',
-      use: {
-        ...devices['Desktop Firefox'],
-      },
-    },
-    {
-      name: 'webkit',
-      use: {
-        ...devices['Desktop Safari'],
-      },
-    },
+    ...(process.env.CLAUDECODE
+      ? []
+      : [
+          {
+            name: 'firefox',
+            use: {
+              ...devices['Desktop Firefox'],
+            },
+          },
+          {
+            name: 'webkit',
+            use: {
+              ...devices['Desktop Safari'],
+            },
+          },
+        ]),
 
     /* Test against mobile viewports. */
     // {
