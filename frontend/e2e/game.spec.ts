@@ -12,6 +12,45 @@ async function getJoinCode(page: Page): Promise<string> {
   return text.replace(/\s+/g, '')
 }
 
+// The shortest round length reachable through the UI (see LobbyView.vue's
+// DURATION_MIN — the range input clamps below this). Any test that starts a
+// round should dial it down to this first: the backend default is a full 5
+// minutes, and nothing in this suite should ever wait that long.
+const SHORT_DURATION_SECONDS = 15
+
+// Must be called by the host, from the lobby, before starting.
+async function startGame(page: Page) {
+  await page.getByTestId('duration-input').fill(String(SHORT_DURATION_SECONDS))
+  await page.getByTestId('duration-input').dispatchEvent('change')
+  await expect(page.getByTestId('duration-label')).toContainText('15s')
+
+  // A coordinate-based click races the start button's continuous "bob" CSS
+  // animation (which also fails Playwright's default actionability
+  // stability check) — the button can be a few pixels away from where the
+  // click lands by the time it's delivered. Dispatching a synthetic click
+  // event instead invokes the handler directly, sidestepping position
+  // entirely.
+  await page.getByTestId('start-button').dispatchEvent('click')
+  await page.waitForURL(/\/games\/.+\/play/)
+}
+
+// Clipboard permission grants aren't supported uniformly across
+// Chromium/Firefox/WebKit in headless CI, so tests that need to read back
+// what was copied stub `writeText` instead of relying on the real OS
+// clipboard. Must be called before any navigation happens on the page.
+async function stubClipboard(page: Page) {
+  await page.addInitScript(() => {
+    if (!navigator.clipboard) {
+      Object.defineProperty(navigator, 'clipboard', { value: {}, configurable: true })
+    }
+    ;(window as unknown as { __copiedText: string }).__copiedText = ''
+    navigator.clipboard.writeText = (text: string) => {
+      ;(window as unknown as { __copiedText: string }).__copiedText = text
+      return Promise.resolve()
+    }
+  })
+}
+
 test.describe('creating a game', () => {
   test('creates a game and lands in the lobby as host', async ({ page }) => {
     await createGame(page, 'Alice')
@@ -166,11 +205,7 @@ test.describe('joining a game', () => {
 
     await createGame(hostPage, 'Alice')
     const code = await getJoinCode(hostPage)
-    // force: true because the start button has a continuous "bob" CSS
-    // animation, which fails Playwright's default actionability stability
-    // check (the button's bounding box never settles).
-    await hostPage.getByTestId('start-button').click({ force: true })
-    await hostPage.waitForURL(/\/games\/.+\/play/)
+    await startGame(hostPage)
 
     const guestContext = await browser.newContext()
     const guestPage = await guestContext.newPage()
@@ -181,6 +216,91 @@ test.describe('joining a game', () => {
 
     await expect(guestPage.getByTestId('home-error')).toContainText('already started')
     await expect(guestPage).toHaveURL('/')
+
+    await hostContext.close()
+    await guestContext.close()
+  })
+})
+
+test.describe('lobby invite link', () => {
+  test('copies an invite link containing the join code', async ({ page }) => {
+    await stubClipboard(page)
+    await createGame(page, 'Alice')
+    const code = await getJoinCode(page)
+
+    await expect(page.getByTestId('copy-link-button')).toHaveText('🔗 Copy invite link')
+    await page.getByTestId('copy-link-button').click()
+
+    const copiedText = await page.evaluate(
+      () => (window as unknown as { __copiedText: string }).__copiedText,
+    )
+    expect(copiedText).toMatch(new RegExp(`/join/${code}$`))
+    await expect(page.getByTestId('copy-link-button')).toHaveText('✅ Link copied!')
+  })
+
+  test('shows and dismisses a QR code for the invite link', async ({ page }) => {
+    await createGame(page, 'Alice')
+
+    await expect(page.getByTestId('qr-modal')).toHaveCount(0)
+    await page.getByTestId('show-qr-button').click()
+
+    const modal = page.getByTestId('qr-modal')
+    await expect(modal).toBeVisible()
+    const qrSrc = await page.getByTestId('qr-code-image').getAttribute('src')
+    expect(qrSrc).toMatch(/^data:image\/png;base64,/)
+
+    await page.getByTestId('close-qr-button').click()
+    await expect(modal).toHaveCount(0)
+  })
+
+  test('dismisses the QR modal by clicking the backdrop', async ({ page }) => {
+    await createGame(page, 'Alice')
+    await page.getByTestId('show-qr-button').click()
+
+    const modal = page.getByTestId('qr-modal')
+    await expect(modal).toBeVisible()
+    // Click the backdrop itself (top-left corner), not the card inside it.
+    await modal.click({ position: { x: 5, y: 5 } })
+    await expect(modal).toHaveCount(0)
+  })
+})
+
+test.describe('joining via invite link', () => {
+  test('pre-fills the code, focuses the name field, and hides the create-game option', async ({
+    browser,
+  }) => {
+    const hostContext = await browser.newContext()
+    const hostPage = await hostContext.newPage()
+    await createGame(hostPage, 'Alice')
+    const code = await getJoinCode(hostPage)
+
+    const guestContext = await browser.newContext()
+    const guestPage = await guestContext.newPage()
+    await guestPage.goto(`/join/${code}`)
+
+    await expect(guestPage.getByTestId('join-code-input')).toHaveValue(code)
+    await expect(guestPage.getByTestId('create-game-button')).toHaveCount(0)
+    await expect(guestPage.getByText('OR')).toHaveCount(0)
+    await expect(guestPage.getByTestId('name-input')).toBeFocused()
+
+    await hostContext.close()
+    await guestContext.close()
+  })
+
+  test('joins the game from the invite-link screen', async ({ browser }) => {
+    const hostContext = await browser.newContext()
+    const hostPage = await hostContext.newPage()
+    await createGame(hostPage, 'Alice')
+    const code = await getJoinCode(hostPage)
+
+    const guestContext = await browser.newContext()
+    const guestPage = await guestContext.newPage()
+    await guestPage.goto(`/join/${code}`)
+    await guestPage.getByTestId('name-input').fill('Bob')
+    await guestPage.getByTestId('join-game-button').click()
+
+    await guestPage.waitForURL(/\/games\/.+\/lobby/)
+    await expect(guestPage.getByTestId('player-row')).toHaveCount(2)
 
     await hostContext.close()
     await guestContext.close()

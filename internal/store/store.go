@@ -33,7 +33,7 @@ var (
 )
 
 const (
-	MinDurationSeconds     = 30
+	MinDurationSeconds     = 15
 	MaxDurationSeconds     = 3600
 	DefaultDurationSeconds = 300
 

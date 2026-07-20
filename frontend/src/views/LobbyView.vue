@@ -20,12 +20,16 @@ const linkCopied = ref(false)
 const qrDataUrl = ref('')
 const showQr = ref(false)
 
-// The backend accepts any duration from 30s to 3600s, but a scavenger hunt
+// The backend accepts any duration from 15s to 3600s, but a scavenger hunt
 // round realistically wants to be short — this range (and the 300s
 // default) come from the original design's own roundSeconds prop.
-const DURATION_MIN = 60
+const DURATION_MIN = 15
 const DURATION_MAX = 600
-const DURATION_STEP = 30
+// Must evenly divide (value - DURATION_MIN) for every duration the slider
+// needs to land on exactly — a range input's programmatic value is
+// otherwise snapped/rejected against its step, e.g. 30 didn't divide
+// evenly from a 15s minimum (180 - 15 = 165, not a multiple of 30).
+const DURATION_STEP = 15
 const localDuration = ref(300)
 
 onMounted(async () => {
